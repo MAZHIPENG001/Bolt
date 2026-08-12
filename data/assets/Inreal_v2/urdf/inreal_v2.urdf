@@ -1,0 +1,1034 @@
+<?xml version="1.0" ?>
+<!-- InReal V2_1 无碰撞模型版URDF，请根据实际情况进行处理 -->
+<!-- 默认模型考虑前后脚掌的作用，如果需要刚性脚，请设置为fix joint -->
+<!-- 机器人从胸腔开始建模，分别是胸腔，左手，右手，腰，左腿，右腿 -->
+<!-- 关节运动范围不严格准确，如果训练碰到角度边界，需要进一步确认 -->
+<!-- 该模型胸腔不包含电池的质量、惯量 -->
+<!-- 前臂质量、惯量可能还和实物有出入，与实物打印的填充率，材料有关，待进一步确认 -->
+<!-- copyright @ woodenjin -->
+
+<robot name="InRealV2">
+    <mujoco>
+        <compiler meshdir="../mesh" discardvisual="false"/>
+    </mujoco>
+    <!-- LINK define -->
+    <link name="pelvis">
+        <inertial>
+            <origin xyz="0 0.0 -0.146"/>
+            <mass value="10.983"/>
+            <inertia ixx="0.0767" ixy="0.0" ixz="0.0002" iyy="0.067598" iyz="0.000035" izz="0.06648"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/R.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <collision>
+            <origin xyz="0 0 -0.035" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.35 0.1"/>
+            </geometry>
+        </collision>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/R.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+    </link>
+
+    <link name="left_hip_pitch_link">
+        <inertial>
+            <origin xyz="0 -0.001 0"/>
+            <mass value="2.425"/>
+            <inertia ixx="0.0039" ixy="0.0" ixz="0.0" iyy="0.00294" iyz="0.0" izz="0.003173"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L1.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L1.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 0" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder length="0.07" radius="0.055" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_hip_pitch_link">
+        <inertial>
+            <origin xyz="0 0.001 0"/>
+            <mass value="2.425"/>
+            <inertia ixx="0.0039" ixy="0.0" ixz="0.0" iyy="0.00294" iyz="0.0" izz="0.003173"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L1.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L1.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 0" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder length="0.07" radius="0.055" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="left_hip_roll_link">
+        <inertial>
+            <origin xyz="0.00137 0 -0.134"/>
+            <mass value="3.246"/>
+            <inertia ixx="0.011788" ixy="0.0" ixz="-0.000619" iyy="0.013069" iyz="0" izz="0.006657"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L2.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L2.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+
+        <collision>
+            <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.08" radius="0.05" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_hip_roll_link">
+        <inertial>
+            <origin xyz="0.00137 0 -0.134"/>
+            <mass value="3.246"/>
+            <inertia ixx="0.011788" ixy="0.0" ixz="-0.000619" iyy="0.013069" iyz="0" izz="0.006657"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L2.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <collision>
+            <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.08" radius="0.05" />
+            </geometry>
+        </collision>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L2.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+    </link>
+
+    <link name="left_hip_yaw_link">
+        <inertial>
+            <origin xyz="-0.0183 -0.00116 -0.126"/>
+            <mass value="4.39"/>
+            <inertia ixx="0.022056" ixy="-0.000147" ixz="-0.003543" iyy="0.022705" iyz="-0.000577" izz="0.006937"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L3.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L3.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.15" radius="0.07" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_hip_yaw_link">
+        <inertial>
+            <origin xyz="-0.0183 0.00116 -0.126"/>
+            <mass value="4.39"/>
+            <inertia ixx="0.022056" ixy="0.000147" ixz="-0.003543" iyy="0.022705" iyz="0.000577" izz="0.006937"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L3.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L3.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.15" radius="0.07" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="left_knee_link">
+        <inertial>
+            <origin xyz="0.00177 -0.001 -0.255"/>
+            <mass value="4.497"/>
+            <inertia ixx="0.041829" ixy="0.0" ixz="-0.001088" iyy="0.041676" iyz="-0.000912" izz="0.00548"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L4.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L4.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 -0.15" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.25" radius="0.05" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_knee_link">
+        <inertial>
+            <origin xyz="0.00177 -0.001 -0.255"/>
+            <mass value="4.497"/>
+            <inertia ixx="0.041829" ixy="0.0" ixz="-0.001088" iyy="0.041676" iyz="0.000912" izz="0.00548"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L4.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L4.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 -0.15" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.25" radius="0.05" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="left_ankle_pitch_link">
+        <inertial>
+            <origin xyz="0.0117 0.001 -0.06"/>
+            <mass value="0.954"/>
+            <inertia ixx="0.001685" ixy="0.000011" ixz="0.000243" iyy="0.001915" iyz="-0.000055" izz="0.001284"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L5.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L5.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 -0.00" rpy="1.571 0 0"/>
+            <geometry>
+                <cylinder length="0.1" radius="0.05" />
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_ankle_pitch_link">
+        <inertial>
+            <origin xyz="0.0117 -0.001 -0.06"/>
+            <mass value="0.954"/>
+            <inertia ixx="0.001685" ixy="-0.000011" ixz="0.000243" iyy="0.001915" iyz="0.000055" izz="0.001284"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L5.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <collision>
+            <origin xyz="0 0 -0.00" rpy="1.571 0 0"/>
+            <geometry>
+                <cylinder length="0.1" radius="0.05" />
+            </geometry>
+        </collision>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L5.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+    </link>
+
+    <link name="left_ankle_roll_link">
+        <inertial>
+            <origin xyz="0.045 0 -0.022"/>
+            <mass value="0.91"/>
+            <inertia ixx="0.001" ixy="0" ixz="0.000236" iyy="0.00307" iyz="0" izz="0.002570"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L6.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="-0.03 0 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.05"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.026 0.018 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.045"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.022 0.036 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.03"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.026 -0.018 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.045"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.022 -0.036 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.03"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.00 0.0 -0.01" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.07"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin xyz="0.1312551 0.0 -0.0463567"/>
+            <geometry>
+                <mesh filename="../mesh/L7.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0.1412551 0.0 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.12"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.1412551 0.02 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.1"/>
+            </geometry>
+        </collision>   
+
+        <collision>
+            <origin xyz="0.1412551 0.04 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.08"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.1412551 -0.02 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.1"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.1412551 -0.04 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.08"/>
+            </geometry>
+        </collision>
+
+        <!-- 鞋面碰撞体：7个Y轴圆柱体从踝关节顶部沿鞋背曲面向脚尖依次排布 -->
+        <collision>
+            <origin xyz="0.12 0.036 -0.028" rpy="0 2.0 0.10"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.13"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.12 0.020 -0.01" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.15"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.13 0.005 -0.008" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.17"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.13 -0.015 -0.012" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.17"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.12 -0.03 -0.022" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.13"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.10 -0.04 -0.03" rpy="0 2.0 -0.1"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.12"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_ankle_roll_link">
+        <inertial>
+            <origin xyz="0.045 0 -0.022"/>
+            <mass value="0.91"/>
+            <inertia ixx="0.001" ixy="0" ixz="0.000236" iyy="0.00307" iyz="0" izz="0.002570"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L6.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/L6.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0.00 0.0 -0.01" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.1 0.07"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.03 0 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.05"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.026 0.018 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.045"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.022 0.036 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.03"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.026 -0.018 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.045"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="-0.022 -0.036 -0.056" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.03"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin xyz="0.1312551 0.0 -0.0463567"/>
+            <geometry>
+                <mesh filename="../mesh/L7.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0.1412551 0.0 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.12"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.1412551 0.02 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.1"/>
+            </geometry>
+        </collision>   
+
+        <collision>
+            <origin xyz="0.1412551 0.04 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.08"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.1412551 -0.02 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.1"/>
+            </geometry>
+        </collision>
+
+        <collision>
+            <origin xyz="0.1412551 -0.04 -0.0563567" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder radius="0.01" length="0.08"/>
+            </geometry>
+        </collision>
+
+        <!-- 鞋面碰撞体：7个Y轴圆柱体从踝关节顶部沿鞋背曲面向脚尖依次排布 -->
+        <collision>
+            <origin xyz="0.030 0.0 -0.020" rpy="1.571 0 0"/>
+            <geometry>
+                <cylinder radius="0.020" length="0.082"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.12 0.036 -0.028" rpy="0 2.0 0.10"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.13"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.12 0.020 -0.01" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.15"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.13 0.005 -0.008" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.17"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.13 -0.015 -0.012" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.17"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.12 -0.03 -0.022" rpy="0 2.0 0.0"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.13"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0.10 -0.04 -0.03" rpy="0 2.0 -0.1"/>
+            <geometry>
+                <cylinder radius="0.010" length="0.12"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="waist_pitch_link">
+        <inertial>
+            <origin xyz="0 0.0 0.042"/>
+            <mass value="4.139"/>
+            <inertia ixx="0.014" ixy="0.0" ixz="0.0" iyy="0.015" iyz="0.0" izz="0.00576"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/W.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/W.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+    </link>
+
+    <link name="torso_link">
+        <inertial>
+            <origin xyz="0.0082 0 0.011"/>
+            <mass value="14.292"/>
+            <inertia ixx="0.36" ixy="0" ixz="0.0215" iyy="0.276" iyz="-0.0022" izz="0.1486"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/C.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/C.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0 0.0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.3 0.5"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="battery">
+        <inertial>
+            <origin xyz="0 0.0 0.0"/>
+            <mass value="7.5"/>
+            <inertia ixx="0.0365625" ixy="0.0" ixz="0.0" iyy="0.0203906" iyz="0.0" izz="0.0389531"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <box size="0.135 0.21 0.12"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <link name="left_shoulder_pitch_link">
+        <inertial>
+            <origin xyz="0 -0.0036 0.0"/>
+            <mass value="2.451"/>
+            <inertia ixx="0.00412" ixy="0" ixz="0.0" iyy="0.00285" iyz="0" izz="0.00330"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A1.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A1.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0.01 0" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder length="0.07" radius="0.04"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_shoulder_pitch_link">
+        <inertial>
+            <origin xyz="0 0.0036 0.0"/>
+            <mass value="2.451"/>
+            <inertia ixx="0.00412" ixy="0" ixz="0.0" iyy="0.00285" iyz="0" izz="0.00330"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A1.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A1.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 -0.01 0" rpy="0 1.571 0"/>
+            <geometry>
+                <cylinder length="0.07" radius="0.04"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="left_shoulder_roll_link">
+        <inertial>
+            <origin xyz="-0.0012 -0.0025 -0.192"/>
+            <mass value="2.526"/>
+            <inertia ixx="0.0174" ixy="0" ixz="0.000419" iyy="0.019585" iyz="0.000297" izz="0.0046"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A2.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A2.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0.02 -0.15" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.2" radius="0.05"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_shoulder_roll_link">
+        <inertial>
+            <origin xyz="-0.0012 0.0025 -0.192"/>
+            <mass value="2.526"/>
+            <inertia ixx="0.0174" ixy="0" ixz="0.000419" iyy="0.019585" iyz="-0.000297" izz="0.0046"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A2.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A2.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 -0.02 -0.15" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.2" radius="0.05"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="left_elbow_link">
+        <inertial>
+            <origin xyz="-0.0014 0.00597 -0.134"/>
+            <mass value="1.679"/>
+            <inertia ixx="0.012" ixy="0.0" ixz="0.000256" iyy="0.012758" iyz="0.000148" izz="0.002287"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A3.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A3.stl" scale="1 1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 0.03 -0.15" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.18" radius="0.02"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="right_elbow_link">
+        <inertial>
+            <origin xyz="-0.0014 -0.00597 -0.134"/>
+            <mass value="1.679"/>
+            <inertia ixx="0.012" ixy="0.0" ixz="0.000256" iyy="0.012758" iyz="-0.000148" izz="0.002287"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A3.stl" scale="1 -1 1"/>
+            </geometry>
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="../mesh/A3.stl" scale="1 -1 1"/>
+            </geometry>
+        </collision> -->
+        <collision>
+            <origin xyz="0 -0.03 -0.15" rpy="0 0 0"/>
+            <geometry>
+                <cylinder length="0.18" radius="0.02"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="hand_L">
+        <!-- <inertial>
+            <origin xyz="0 -0.00 -0.05"/>
+            <mass value="2"/>
+            <inertia ixx="0.0005" ixy="0.0" ixz="0.0" iyy="0.0005" iyz="0.00" izz="0.0005"/>
+        </inertial> -->
+        <!-- <visual>
+			<geometry>
+				<sphere radius="0.03"/>
+			</geometry>
+        </visual>
+        <collision>
+			<geometry>
+				<sphere radius="0.03"/>
+			</geometry>
+        </collision> -->
+    </link>
+
+    <link name="hand_R">
+        <!-- <inertial>
+            <origin xyz="0 -0.00 -0.05"/>
+            <mass value="2"/>
+            <inertia ixx="0.0005" ixy="0.0" ixz="0.0" iyy="0.0005" iyz="0.00" izz="0.0005"/>
+        </inertial> -->
+        <!-- <visual>
+			<geometry>
+				<sphere radius="0.03"/>
+			</geometry>
+        </visual>
+        <collision>
+			<geometry>
+				<sphere radius="0.03"/>
+			</geometry>
+        </collision> -->
+    </link>
+
+
+    <!-- ********************************************************************************** -->
+    <!-- JOINT DEFINE -->
+    <joint name="left_hip_pitch_joint" type="revolute">
+        <parent link="pelvis"/>
+        <child link="left_hip_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.1407 -0.159"/>
+        <limit lower="-1.57" upper="1.57" effort="586.85"/>
+    </joint>
+
+    <joint name="left_hip_roll_joint" type="revolute">
+        <parent link="left_hip_pitch_link"/>
+        <child link="left_hip_roll_link"/>
+        <axis xyz="1 0 0"/>
+        <origin xyz="-0.01 0.0 0"/>
+        <limit lower="-0.35" upper="1.57" effort="336"/>
+    </joint>
+
+    <joint name="left_hip_yaw_joint" type="revolute">
+        <parent link="left_hip_roll_link"/>
+        <child link="left_hip_yaw_link"/>
+        <axis xyz="0 0 1"/>
+        <origin xyz="0 0.0 -0.2051"/>
+        <limit lower="-0.785" upper="0.785" effort="336"/>
+    </joint>
+
+    <joint name="left_knee_joint" type="revolute">
+        <parent link="left_hip_yaw_link"/>
+        <child link="left_knee_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="-0.043 0.0 -0.2226"/>
+        <limit lower="-0.26" upper="2.2" effort="338.4"/>
+    </joint>
+
+    <joint name="left_ankle_pitch_joint" type="revolute">
+        <parent link="left_knee_link"/>
+        <child link="left_ankle_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.0 -0.370"/>
+        <limit lower="-0.6" upper="0.75" effort="338.4"/>
+    </joint>
+
+    <joint name="left_ankle_roll_joint" type="revolute">
+        <parent link="left_ankle_pitch_link"/>
+        <child link="left_ankle_roll_link"/>
+        <axis xyz="1 0 0"/>
+        <origin xyz="0.014 0.0 -0.085"/>
+        <limit lower="-0.26" upper="0.26" effort="38.4"/>
+    </joint>
+
+    <!-- <joint name="toe_spring_L" type="revolute">
+        <parent link="L6"/>
+        <child link="L7"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0.1312551 0.0 -0.0463567"/>
+        <limit lower="-0.7" upper="0.0" effort="200"/>
+    </joint> -->
+
+    <joint name="right_hip_pitch_joint" type="revolute">
+        <parent link="pelvis"/>
+        <child link="right_hip_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 -0.1417 -0.159"/>
+        <limit lower="-1.57" upper="1.57" effort="586.85"/>
+    </joint>
+
+    <joint name="right_hip_roll_joint" type="revolute">
+        <parent link="right_hip_pitch_link"/>
+        <child link="right_hip_roll_link"/>
+        <axis xyz="1 0 0"/>
+        <origin xyz="-0.01 0.0 0"/>
+        <limit lower="-1.57" upper="0.35" effort="336"/>
+    </joint>
+
+    <joint name="right_hip_yaw_joint" type="revolute">
+        <parent link="right_hip_roll_link"/>
+        <child link="right_hip_yaw_link"/>
+        <axis xyz="0 0 1"/>
+        <origin xyz="0 0.0 -0.2051"/>
+        <limit lower="-0.785" upper="0.785" effort="336"/>
+    </joint>
+
+    <joint name="right_knee_joint" type="revolute">
+        <parent link="right_hip_yaw_link"/>
+        <child link="right_knee_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="-0.043 0.0 -0.2226"/>
+        <limit lower="-0.26" upper="2.2" effort="338.4"/>
+    </joint>
+
+    <joint name="right_ankle_pitch_joint" type="revolute">
+        <parent link="right_knee_link"/>
+        <child link="right_ankle_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.0 -0.370"/>
+        <limit lower="-0.6" upper="0.75" effort="338.4"/>
+    </joint>
+
+    <joint name="right_ankle_roll_joint" type="revolute">
+        <parent link="right_ankle_pitch_link"/>
+        <child link="right_ankle_roll_link"/>
+        <axis xyz="1 0 0"/>
+        <origin xyz="0.014 0.0 -0.085"/>
+        <limit lower="-0.26" upper="0.26" effort="38.4"/>
+    </joint>
+
+    <!-- <joint name="toe_spring_R" type="revolute">
+        <parent link="L6_M"/>
+        <child link="L7_M"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0.1312551 0.0 -0.0463567"/>
+        <limit lower="-0.7" upper="0.0" effort="200"/>
+    </joint> -->
+
+    <joint name="waist_pitch_joint" type="revolute">
+        <parent link="pelvis"/>
+        <child link="waist_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.0 0"/>
+        <limit lower="-1.2" upper="1.2" effort="336"/>
+    </joint>
+
+    <joint name="waist_yaw_joint" type="revolute">
+        <parent link="waist_pitch_link"/>
+        <child link="torso_link"/>
+        <axis xyz="0 0 1"/>
+        <origin xyz="-0.018 0 0.3515"/>
+        <limit lower="-3.14" upper="3.14" effort="336"/>
+    </joint>
+
+
+    <joint name="left_shoulder_pitch_joint" type="revolute">
+        <parent link="torso_link"/>
+        <child link="left_shoulder_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.2207 0"/>
+        <limit lower="-3.14" upper="1.57" effort="336"/>
+    </joint>
+
+    <joint name="left_shoulder_roll_joint" type="revolute">
+        <parent link="left_shoulder_pitch_link"/>
+        <child link="left_shoulder_roll_link"/>
+        <axis xyz="1 0 0"/>
+        <origin xyz="0.0 0.0 0"/>
+        <limit lower="-0.13" upper="1.57" effort="336"/>
+    </joint>
+
+    <joint name="left_elbow_joint" type="revolute">
+        <parent link="left_shoulder_roll_link"/>
+        <child link="left_elbow_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.0 -0.2385"/>
+        <limit lower="-1.76" upper="0.0" effort="112.2"/>
+    </joint>
+
+    <joint name="right_shoulder_pitch_joint" type="revolute">
+        <parent link="torso_link"/>
+        <child link="right_shoulder_pitch_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 -0.2207 0"/>
+        <limit lower="-3.14" upper="1.57" effort="336"/>
+    </joint>
+
+    <joint name="right_shoulder_roll_joint" type="revolute">
+        <parent link="right_shoulder_pitch_link"/>
+        <child link="right_shoulder_roll_link"/>
+        <axis xyz="1 0 0"/>
+        <origin xyz="0.0 0.0 0"/>
+        <limit lower="-1.57" upper="0.13" effort="336"/>
+    </joint>
+
+    <joint name="right_elbow_joint" type="revolute">
+        <parent link="right_shoulder_roll_link"/>
+        <child link="right_elbow_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0.0 -0.2385"/>
+        <limit lower="-1.76" upper="0.0" effort="112.2"/>
+    </joint>
+
+    <joint name="battery_joint" type="fixed" dont_collapse="true">
+        <parent link="torso_link"/>
+        <child link="battery"/>
+        <!-- <origin xyz="0.0 0.0 -0.1815"/> -->
+        <origin xyz="0.033 0.0 -0.14"/>
+    </joint>
+    
+    <joint name="hand_L" type="fixed" dont_collapse="true">
+        <parent link="left_elbow_link"/>
+        <child link="hand_L"/>
+        <origin xyz="0 0.03 -0.27"/>
+    </joint>
+
+    <joint name="hand_R" type="fixed" dont_collapse="true">
+        <parent link="right_elbow_link"/>
+        <child link="hand_R"/>
+        <origin xyz="0 -0.03 -0.27"/>
+    </joint>
+
+</robot>

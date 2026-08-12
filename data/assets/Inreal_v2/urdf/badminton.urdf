@@ -1,0 +1,37 @@
+<?xml version="1.0" ?>
+
+<robot name="shuttlecock">
+    <mujoco>
+        <compiler meshdir="../mesh" discardvisual="false"/>
+    </mujoco>
+
+    <!-- 世界坐标系 -->
+    <!-- <link name="world"/> -->
+    <!-- LINK define -->
+    <link name="shuttlecock">
+        <inertial>
+            <origin xyz="0 0.0 0.0"/>
+            <mass value="0.006"/>
+            <inertia ixx="0.000002" ixy="0.0" ixz="0.0" iyy="0.000002" iyz="0.0" izz="0.000002"/>
+        </inertial>
+        <visual>
+            <origin xyz="0 -0.013 0" rpy="0 0 -0.157"/>
+            <geometry>
+                <mesh filename="../mesh/shutt.stl" scale="1 1 1"/>
+            </geometry>
+        </visual>
+        <!-- 碰撞模型 -->
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <sphere radius="0.013"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <!-- 自由关节（6自由度：3平移+3旋转） -->
+    <!-- <joint name="shuttlecock_joint" type="floating">
+        <parent link="world"/>
+    </joint> -->
+
+</robot>

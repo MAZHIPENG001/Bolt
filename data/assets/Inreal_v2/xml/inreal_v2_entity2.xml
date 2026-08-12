@@ -1,0 +1,230 @@
+<mujoco model="InRealV2">
+  <compiler angle="radian" meshdir="../mesh/"/>
+
+  <asset>
+    <mesh name="R" content_type="model/stl" file="R.stl"/>
+    <mesh name="L1" content_type="model/stl" file="L1.stl"/>
+    <mesh name="L11" content_type="model/stl" file="L1.stl" scale="1 -1 1"/>
+    <mesh name="L2" content_type="model/stl" file="L2.stl"/>
+    <mesh name="L21" content_type="model/stl" file="L2.stl" scale="1 -1 1"/>
+    <mesh name="L3" content_type="model/stl" file="L3.stl"/>
+    <mesh name="L31" content_type="model/stl" file="L3.stl" scale="1 -1 1"/>
+    <mesh name="L4" content_type="model/stl" file="L4.stl"/>
+    <mesh name="L41" content_type="model/stl" file="L4.stl" scale="1 -1 1"/>
+    <mesh name="L5" content_type="model/stl" file="L5.stl"/>
+    <mesh name="L51" content_type="model/stl" file="L5.stl" scale="1 -1 1"/>
+    <mesh name="L6" content_type="model/stl" file="L6.stl"/>
+    <mesh name="L7" content_type="model/stl" file="L7.stl"/>
+    <mesh name="L61" content_type="model/stl" file="L6.stl" scale="1 -1 1"/>
+    <mesh name="L71" content_type="model/stl" file="L7.stl" scale="1 -1 1"/>
+    <mesh name="W" content_type="model/stl" file="W.stl"/>
+    <mesh name="C" content_type="model/stl" file="C.stl"/>
+    <mesh name="A1" content_type="model/stl" file="A1.stl"/>
+    <mesh name="A11" content_type="model/stl" file="A1.stl" scale="1 -1 1"/>
+    <mesh name="A2" content_type="model/stl" file="A2.stl"/>
+    <mesh name="A21" content_type="model/stl" file="A2.stl" scale="1 -1 1"/>
+    <mesh name="A3" content_type="model/stl" file="A3.stl"/>
+    <mesh name="A31" content_type="model/stl" file="A3.stl" scale="1 -1 1"/>
+  </asset>
+
+  <!-- setup scene -->
+  <statistic center="0 0 1.0" extent="1.0"/>
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.4 0.4 0.4" specular="0.1 0.1 0.1"/>
+    <rgba haze="0.06 0.1 0.16 1"/>
+    <global offwidth="2080" offheight="1170"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient"
+      rgb1="0.18 0.28 0.40" rgb2="0.02 0.04 0.10"
+      width="512" height="512"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge"
+      rgb1="0.09 0.19 0.31" rgb2="0.03 0.06 0.15"
+      markrgb="0.45 0.65 0.90" width="512" height="512"/>
+    <material name="groundplane" texture="groundplane" texuniform="true"
+      texrepeat="5 5" reflectance="0.25"/>
+  </asset>
+
+  <worldbody>
+    <geom name="floor" size="100 100 0.01" type="box" material="groundplane" contype="1" conaffinity="1" priority="1"
+      friction="1.0 0.001 0.001" condim="3" solimp="0.9 0.95 0.01" solref="0.02 0.9"/>
+    <light name="main" directional="true" diffuse="0.6 0.6 0.6" specular="0.1 0.1 0.1"
+      pos="0 0 10" dir="0.2 0.3 -1" castshadow="true"/>
+    <light name="fill" directional="true" diffuse="0.25 0.25 0.3" specular="0.0 0.0 0.0"
+      pos="0 0 5" dir="-0.2 -0.3 -1" castshadow="false"/>
+    <body name="pelvis" pos="0 0 1.12">
+      <inertial pos="0 0 -0.146" quat="0.999831 0.0155735 -0.00977795 0.000189897" mass="10.983" diaginertia="0.0767039 0.0675991 0.066475"/>
+      <joint name="floating_base_joint" type="free"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="R"/>
+      <geom size="0.05 0.175 0.05" pos="0 0 -0.035" type="box" group="3"/>
+      <body name="left_hip_pitch_link" pos="0 0.1407 -0.159">
+        <inertial pos="0 -0.001 0" quat="0.707107 0.707107 0 0" mass="2.425" diaginertia="0.0039 0.003173 0.00294"/>
+        <joint name="left_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.57 1.57" actuatorfrcrange="-587 587"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L1"/>
+        <geom size="0.055 0.035" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+        <body name="left_hip_roll_link" pos="-0.01 0 0">
+          <inertial pos="0.00137 0 -0.134" quat="0.705869 0.0418281 0.0418281 0.705869" mass="3.246" diaginertia="0.013069 0.0118616 0.00658338"/>
+          <joint name="left_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.35 1.57" actuatorfrcrange="-336 336"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L2"/>
+          <geom size="0.05 0.04" pos="0 0 -0.1" type="cylinder" group="3"/>
+          <body name="left_hip_yaw_link" pos="0 0 -0.2051">
+            <inertial pos="-0.0183 -0.00116 -0.126" quat="0.991284 -0.0258429 0.107741 -0.0712767" mass="4.39" diaginertia="0.0228478 0.0227237 0.00612655"/>
+            <joint name="left_hip_yaw_joint" pos="0 0 0" axis="0 0 1" range="-0.785 0.785" actuatorfrcrange="-336 336"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L3"/>
+            <geom size="0.07 0.075" pos="0 0 -0.05" type="cylinder" group="3"/>
+            <body name="left_knee_link" pos="-0.043 0 -0.2226">
+              <inertial pos="0.00177 -0.001 -0.255" quat="0.996528 -0.0113213 0.0159034 0.0809379" mass="4.497" diaginertia="0.041866 0.0416945 0.00542454"/>
+              <joint name="left_knee_joint" pos="0 0 0" axis="0 1 0" range="-0.26 2.2" actuatorfrcrange="-338 338"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L4"/>
+              <geom size="0.05 0.125" pos="0 0 -0.15" type="cylinder" group="3"/>
+              <body name="left_ankle_pitch_link" pos="0 0 -0.37">
+                <inertial pos="0.0117 0.001 -0.06" quat="0.656333 -0.18572 -0.118713 0.721555" mass="0.954" diaginertia="0.00192045 0.00179804 0.00116551"/>
+                <joint name="left_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.6 0.75" actuatorfrcrange="-338 338"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L5"/>
+                <geom size="0.05 0.05" quat="0.707035 0.707179 0 0" type="cylinder" group="3"/>
+                <body name="left_ankle_roll_link" pos="0.014 0 -0.085">
+                  <site name="left_foot" rgba="1 0 0 1" pos="0.04 0 -0.06"/>
+                  <inertial pos="0.045 0 -0.022" quat="0.462195 0.535141 0.535141 0.462195" mass="0.91" diaginertia="0.00307 0.00260471 0.000965292"/>
+                  <joint name="left_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.26 0.26" actuatorfrcrange="-38 38"/>
+                  <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L6"/>
+                  <geom pos="0.131255 0 -0.0463567" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L7"/>
+                  <geom size="0.05 0.05 0.035" pos="0 0 -0.01" type="box" group="3"/>
+                  <geom name="left_foot3_collision" size="0.01 0.03" pos="-0.036 0 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot4_collision" size="0.01 0.03" pos="-0.036 0.018 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot5_collision" size="0.01 0.025" pos="-0.036 0.036 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot6_collision" size="0.01 0.03" pos="-0.036 -0.018 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot7_collision" size="0.01 0.025" pos="-0.036 -0.036 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot8_collision" size="0.01 0.055" pos="0.14 0 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot9_collision" size="0.01 0.055" pos="0.14 0.02 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot10_collision" size="0.01 0.055" pos="0.14 0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot11_collision" size="0.01 0.055" pos="0.14 -0.02 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="left_foot12_collision" size="0.01 0.055" pos="0.14 -0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <!-- 鞋面碰撞体 -->
+                  <geom size="0.010 0.065" pos="0.12 0.036 -0.028" quat="0.5396 -0.0421 0.8405 0.0270" type="cylinder" group="3"/>
+                  <geom size="0.010 0.075" pos="0.12 0.020 -0.01" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.085" pos="0.13 0.005 -0.008" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.085" pos="0.13 -0.015 -0.012" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.065" pos="0.12 -0.03 -0.022" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.060" pos="0.10 -0.04 -0.03" quat="0.5396 0.0421 0.8405 -0.0270" type="cylinder" group="3"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="right_hip_pitch_link" pos="0 -0.1417 -0.159">
+        <inertial pos="0 0.001 0" quat="0.707107 0.707107 0 0" mass="2.425" diaginertia="0.0039 0.003173 0.00294"/>
+        <joint name="right_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.57 1.57" actuatorfrcrange="-587 587"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L11"/>
+        <geom size="0.055 0.035" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+        <body name="right_hip_roll_link" pos="-0.01 0 0">
+          <inertial pos="0.00137 0 -0.134" quat="0.705869 0.0418281 0.0418281 0.705869" mass="3.246" diaginertia="0.013069 0.0118616 0.00658338"/>
+          <joint name="right_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-1.57 0.35" actuatorfrcrange="-336 336"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L21"/>
+          <geom size="0.05 0.04" pos="0 0 -0.1" type="cylinder" group="3"/>
+          <body name="right_hip_yaw_link" pos="0 0 -0.2051">
+            <inertial pos="-0.0183 0.00116 -0.126" quat="0.991284 0.0258429 0.107741 0.0712767" mass="4.39" diaginertia="0.0228478 0.0227237 0.00612655"/>
+            <joint name="right_hip_yaw_joint" pos="0 0 0" axis="0 0 1" range="-0.785 0.785" actuatorfrcrange="-336 336"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L31"/>
+            <geom size="0.07 0.075" pos="0 0 -0.05" type="cylinder" group="3"/>
+            <body name="right_knee_link" pos="-0.043 0 -0.2226">
+              <inertial pos="0.00177 -0.001 -0.255" quat="0.996528 0.0113213 0.0159034 -0.0809379" mass="4.497" diaginertia="0.041866 0.0416945 0.00542454"/>
+              <joint name="right_knee_joint" pos="0 0 0" axis="0 1 0" range="-0.26 2.2" actuatorfrcrange="-338 338"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L41"/>
+              <geom size="0.05 0.125" pos="0 0 -0.15" type="cylinder" group="3"/>
+              <body name="right_ankle_pitch_link" pos="0 0 -0.37">
+                <inertial pos="0.0117 -0.001 -0.06" quat="0.721555 -0.118713 -0.18572 0.656333" mass="0.954" diaginertia="0.00192045 0.00179804 0.00116551"/>
+                <joint name="right_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.6 0.75" actuatorfrcrange="-338 338"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L51"/>
+                <geom size="0.05 0.05" quat="0.707035 0.707179 0 0" type="cylinder" group="3"/>
+                <body name="right_ankle_roll_link" pos="0.014 0 -0.085">
+                  <site name="right_foot" rgba="1 0 0 1" pos="0.04 0 -0.06"/>
+                  <inertial pos="0.045 0 -0.022" quat="0.462195 0.535141 0.535141 0.462195" mass="0.91" diaginertia="0.00307 0.00260471 0.000965292"/>
+                  <joint name="right_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.26 0.26" actuatorfrcrange="-38 38"/>
+                  <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L61"/>
+                  <geom pos="0.131255 0 -0.0463567" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="L71"/>
+                  <geom size="0.05 0.05 0.035" pos="0 0 -0.01" type="box" group="3"/>
+                  <geom name="right_foot3_collision" size="0.01 0.03" pos="-0.036 0 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot4_collision" size="0.01 0.03" pos="-0.036 0.018 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot5_collision" size="0.01 0.025" pos="-0.036 0.036 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot6_collision" size="0.01 0.03" pos="-0.036 -0.018 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot7_collision" size="0.01 0.025" pos="-0.036 -0.036 -0.056" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot8_collision" size="0.01 0.055" pos="0.14 0 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot9_collision" size="0.01 0.055" pos="0.14 0.02 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot10_collision" size="0.01 0.055" pos="0.14 0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot11_collision" size="0.01 0.055" pos="0.14 -0.02 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <geom name="right_foot12_collision" size="0.01 0.055" pos="0.14 -0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+                  <!-- 鞋面碰撞体 -->
+                  <geom size="0.010 0.065" pos="0.12 0.036 -0.028" quat="0.5396 -0.0421 0.8405 0.0270" type="cylinder" group="3"/>
+                  <geom size="0.010 0.075" pos="0.12 0.020 -0.01" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.085" pos="0.13 0.005 -0.008" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.085" pos="0.13 -0.015 -0.012" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.065" pos="0.12 -0.03 -0.022" quat="0.5403 0 0.8415 0" type="cylinder" group="3"/>
+                  <geom size="0.010 0.060" pos="0.10 -0.04 -0.03" quat="0.5396 0.0421 0.8405 -0.0270" type="cylinder" group="3"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="waist_pitch_link">
+        <inertial pos="0 0 0.042" quat="0.707107 0 0 0.707107" mass="4.139" diaginertia="0.015 0.014 0.00576"/>
+        <joint name="waist_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.2 1.2" actuatorfrcrange="-336 336"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="W"/>
+        <body name="torso_link" pos="-0.018 0 0.3515">
+          <site name="IMU" pos="0 0 0" size="0.01" quat="1 0 0 0"/>
+          <inertial pos="0.0082 0 0.011" quat="0.998705 -0.00836919 -0.0501464 -0.00170095" mass="14.292" diaginertia="0.362165 0.276036 0.146399"/>
+          <joint name="waist_yaw_joint" pos="0 0 0" axis="0 0 1" range="-3.14 3.14" actuatorfrcrange="-336 336"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="C"/>
+          <geom size="0.05 0.15 0.25" type="box" group="3"/>
+          <body name="left_shoulder_pitch_link" pos="0 0.2207 0">
+            <inertial pos="0 -0.0036 0" quat="0.707107 0.707107 0 0" mass="2.451" diaginertia="0.00412 0.0033 0.00285"/>
+            <joint name="left_shoulder_pitch_joint" pos="0 0 0" axis="0 1 0" range="-3.14 1.57" actuatorfrcrange="-336 336"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="A1"/>
+            <geom size="0.04 0.035" pos="0 0.01 0" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+            <body name="left_shoulder_roll_link">
+              <inertial pos="-0.0012 -0.0025 -0.192" quat="0.708438 -0.0045166 -0.0185531 0.705515" mass="2.526" diaginertia="0.0195909 0.0174137 0.00458043"/>
+              <joint name="left_shoulder_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.13 1.57" actuatorfrcrange="-336 336"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="A2"/>
+              <geom size="0.05 0.1" pos="0 0.02 -0.15" type="cylinder" group="3"/>
+              <body name="left_elbow_link" pos="0 0 -0.2385">
+                <inertial pos="-0.0014 0.00597 -0.134" quat="0.708788 -0.00427982 -0.0143089 0.705263" mass="1.679" diaginertia="0.0127601 0.0120067 0.00227817"/>
+                <joint name="left_elbow_joint" pos="0 0 0" axis="0 1 0" range="-1.76 0" actuatorfrcrange="-136 136"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="A3"/>
+                <geom size="0.02 0.09" pos="0 0.03 -0.15" type="cylinder" group="3"/>
+              </body>
+            </body>
+          </body>
+          <body name="right_shoulder_pitch_link" pos="0 -0.2207 0">
+            <inertial pos="0 0.0036 0" quat="0.707107 0.707107 0 0" mass="2.451" diaginertia="0.00412 0.0033 0.00285"/>
+            <joint name="right_shoulder_pitch_joint" pos="0 0 0" axis="0 1 0" range="-3.14 1.57" actuatorfrcrange="-336 336"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="A11"/>
+            <geom size="0.04 0.035" pos="0 -0.01 0" quat="0.707035 0 0.707179 0" type="cylinder" group="3"/>
+            <body name="right_shoulder_roll_link">
+              <inertial pos="-0.0012 0.0025 -0.192" quat="0.705515 -0.0185531 -0.0045166 0.708438" mass="2.526" diaginertia="0.0195909 0.0174137 0.00458043"/>
+              <joint name="right_shoulder_roll_joint" pos="0 0 0" axis="1 0 0" range="-1.57 0.13" actuatorfrcrange="-336 336"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="A21"/>
+              <geom size="0.05 0.1" pos="0 -0.02 -0.15" type="cylinder" group="3"/>
+              <body name="right_elbow_link" pos="0 0 -0.2385">
+                <inertial pos="-0.0014 -0.00597 -0.134" quat="0.705263 -0.0143089 -0.00427982 0.708788" mass="1.679" diaginertia="0.0127601 0.0120067 0.00227817"/>
+                <joint name="right_elbow_joint" pos="0 0 0" axis="0 1 0" range="-1.76 0" actuatorfrcrange="-136 136"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="A31"/>
+                <geom size="0.02 0.09" pos="0 -0.03 -0.15" type="cylinder" group="3"/>
+              </body>
+            </body>
+          </body>
+          <body name="battery" pos="0.033 0 -0.14">
+            <inertial pos="0 0 0" mass="7.5" diaginertia="0.0365625 0.0203906 0.0389531"/>
+            <geom size="0.0675 0.105 0.06" type="box" contype="0" conaffinity="0" group="1" density="0"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <accelerometer name="BodyAcc" site="IMU" noise="0.1"/>
+    <gyro name="BodyGyro" site="IMU" noise="0.001"/>
+    <subtreeangmom name="root_angmom" body="torso_link"/>
+  </sensor>
+</mujoco>
