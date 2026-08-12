@@ -54,7 +54,7 @@ def repair_usd(input_path: Path, output_path: Path) -> None:
             references.ClearReferences()
             if not references.AddInternalReference(source.GetPath()):
                 raise RuntimeError(f"Failed to reference {source.GetPath()} from {target.GetPath()}")
-            target.SetInstanceable(True)
+            target.SetInstanceable(False)
             repaired += 1
 
     collision_groups = [

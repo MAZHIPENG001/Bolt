@@ -668,7 +668,7 @@ class BoltEnvCfg(ManagerBasedRLEnvCfg):
     """Reference-aligned privileged teacher task for soccer juggling."""
 
     # Keep a safe default for the local 8 GB GPU; callers can override it.
-    scene: BoltSceneCfg = BoltSceneCfg(num_envs=256, env_spacing=5.0, replicate_physics=True)
+    scene: BoltSceneCfg = BoltSceneCfg(num_envs=256, env_spacing=5.0, replicate_physics=False)
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     events: EventCfg = EventCfg()
