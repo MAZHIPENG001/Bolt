@@ -1,5 +1,6 @@
 """Asset configurations for the Inreal V2 soccer task."""
 
+import math
 from pathlib import Path
 
 import isaaclab.sim as sim_utils
@@ -11,6 +12,22 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[6]
 INREAL_V2_USD_PATH = (
     _PROJECT_ROOT / "data/assets/Inreal_v2/usd/inreal_v2_entity2_0528_robot_isaaclab.usd"
 )
+
+_NATURAL_FREQ = 7.0 * 2.0 * math.pi
+_DAMPING_RATIO = 2.0
+
+
+def _pd_gains(armature: float) -> tuple[float, float]:
+    """BeyondAmp_Mjlab's inertia-scaled 7 Hz, damping-ratio-2 gains."""
+    stiffness = armature * _NATURAL_FREQ**2
+    damping = 2.0 * _DAMPING_RATIO * armature * _NATURAL_FREQ
+    return stiffness, damping
+
+
+_L1_GAINS = _pd_gains(0.291)
+_L2_GAINS = _pd_gains(0.181)
+_L3_GAINS = _pd_gains(0.1516)
+_A2_GAINS = _pd_gains(0.036)
 
 
 INREAL_V2_CFG = ArticulationCfg(
@@ -59,8 +76,8 @@ INREAL_V2_CFG = ArticulationCfg(
     actuators={
         "hip_pitch": DCMotorCfg(
             joint_names_expr=[".*_hip_pitch_joint"],
-            stiffness=360.0,
-            damping=12.0,
+            stiffness=_L1_GAINS[0],
+            damping=_L1_GAINS[1],
             effort_limit=586.85,
             effort_limit_sim=586.85,
             velocity_limit=13.12,
@@ -69,8 +86,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "hip_roll": DCMotorCfg(
             joint_names_expr=[".*_hip_roll_joint"],
-            stiffness=300.0,
-            damping=10.0,
+            stiffness=_L2_GAINS[0],
+            damping=_L2_GAINS[1],
             effort_limit=336.0,
             effort_limit_sim=336.0,
             velocity_limit=12.9,
@@ -79,8 +96,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "hip_yaw": DCMotorCfg(
             joint_names_expr=[".*_hip_yaw_joint"],
-            stiffness=300.0,
-            damping=10.0,
+            stiffness=_L2_GAINS[0],
+            damping=_L2_GAINS[1],
             effort_limit=336.0,
             effort_limit_sim=336.0,
             velocity_limit=12.9,
@@ -89,8 +106,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "knee": DCMotorCfg(
             joint_names_expr=[".*_knee_joint"],
-            stiffness=240.0,
-            damping=8.0,
+            stiffness=_L3_GAINS[0],
+            damping=_L3_GAINS[1],
             effort_limit=338.4,
             effort_limit_sim=338.4,
             velocity_limit=24.3,
@@ -99,8 +116,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "ankle_pitch": DCMotorCfg(
             joint_names_expr=[".*_ankle_pitch_joint"],
-            stiffness=160.0,
-            damping=6.0,
+            stiffness=_L3_GAINS[0],
+            damping=_L3_GAINS[1],
             effort_limit=338.4,
             effort_limit_sim=338.4,
             velocity_limit=24.3,
@@ -109,8 +126,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "ankle_roll": DCMotorCfg(
             joint_names_expr=[".*_ankle_roll_joint"],
-            stiffness=40.0,
-            damping=1.5,
+            stiffness=20.0,
+            damping=1.8,
             effort_limit=38.4,
             effort_limit_sim=38.4,
             velocity_limit=40.75,
@@ -119,8 +136,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "waist": DCMotorCfg(
             joint_names_expr=["waist_.*_joint"],
-            stiffness=300.0,
-            damping=12.0,
+            stiffness=_L2_GAINS[0],
+            damping=_L2_GAINS[1],
             effort_limit=336.0,
             effort_limit_sim=336.0,
             velocity_limit=12.875,
@@ -129,8 +146,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "shoulder_pitch": DCMotorCfg(
             joint_names_expr=[".*_shoulder_pitch_joint"],
-            stiffness=120.0,
-            damping=7.0,
+            stiffness=_L2_GAINS[0],
+            damping=_L2_GAINS[1],
             effort_limit=336.0,
             effort_limit_sim=336.0,
             velocity_limit=12.9,
@@ -139,8 +156,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "shoulder_roll": DCMotorCfg(
             joint_names_expr=[".*_shoulder_roll_joint"],
-            stiffness=120.0,
-            damping=7.0,
+            stiffness=_L2_GAINS[0],
+            damping=_L2_GAINS[1],
             effort_limit=336.0,
             effort_limit_sim=336.0,
             velocity_limit=12.9,
@@ -149,8 +166,8 @@ INREAL_V2_CFG = ArticulationCfg(
         ),
         "elbow": DCMotorCfg(
             joint_names_expr=[".*_elbow_joint"],
-            stiffness=80.0,
-            damping=4.0,
+            stiffness=_A2_GAINS[0],
+            damping=_A2_GAINS[1],
             effort_limit=112.2,
             effort_limit_sim=112.2,
             velocity_limit=33.765,
@@ -168,8 +185,8 @@ SOCCER_CFG = RigidObjectCfg(
         radius=0.11,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
-            linear_damping=0.01,
-            angular_damping=0.01,
+            linear_damping=0.0,
+            angular_damping=0.0,
             max_linear_velocity=30.0,
             max_angular_velocity=100.0,
             max_depenetration_velocity=5.0,

@@ -1,15 +1,99 @@
-"""Termination terms for the soccer juggling task."""
+"""Termination terms for the two-phase soccer-juggling curriculum."""
 
 from __future__ import annotations
 
-import torch
 from typing import TYPE_CHECKING
+
+import torch
 
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.utils.math import quat_apply, yaw_quat
+
+from .juggle_state import get_juggle_state
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
+
+
+def _phase_enabled(env: ManagerBasedRLEnv) -> bool:
+    return int(getattr(env, "_bolt_curriculum_phase", 0)) >= 1
+
+
+def soccer_ball_on_ground_phase1b(
+    env: ManagerBasedRLEnv,
+    ball_radius: float = 0.11,
+    soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
+) -> torch.Tensor:
+    state = get_juggle_state(env)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    soccer: RigidObject = env.scene[soccer_cfg.name]
+    height = soccer.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
+    return (height < ball_radius + 0.03) & state.ball_started_near
+
+
+def soccer_ball_too_far_phase1b(
+    env: ManagerBasedRLEnv,
+    max_distance: float,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
+) -> torch.Tensor:
+    state = get_juggle_state(env)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    robot: Articulation = env.scene[robot_cfg.name]
+    soccer: RigidObject = env.scene[soccer_cfg.name]
+    distance = torch.linalg.vector_norm(
+        soccer.data.root_pos_w[:, :2] - robot.data.root_pos_w[:, :2], dim=-1
+    )
+    return (distance > max_distance) & state.ball_started_near
+
+
+def soccer_ball_too_high_phase1b(
+    env: ManagerBasedRLEnv,
+    max_height: float,
+    soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
+) -> torch.Tensor:
+    state = get_juggle_state(env)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    soccer: RigidObject = env.scene[soccer_cfg.name]
+    height = soccer.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
+    return (height > max_height) & state.ball_started_near
+
+
+def soccer_ball_behind_robot_phase1b(
+    env: ManagerBasedRLEnv,
+    min_forward_dist: float,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
+) -> torch.Tensor:
+    state = get_juggle_state(env)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    robot: Articulation = env.scene[robot_cfg.name]
+    soccer: RigidObject = env.scene[soccer_cfg.name]
+    relative = soccer.data.root_pos_w - robot.data.root_pos_w
+    forward_unit = torch.tensor([1.0, 0.0, 0.0], device=env.device).expand(env.num_envs, -1)
+    forward = quat_apply(yaw_quat(robot.data.root_quat_w), forward_unit)
+    forward_distance = (relative * forward).sum(dim=-1)
+    return (forward_distance < min_forward_dist) & state.ball_started_near
+
+
+def single_foot_bias_terminate(
+    env: ManagerBasedRLEnv,
+    same_foot_threshold: int = 3,
+) -> torch.Tensor:
+    state = get_juggle_state(env)
+    return (state.same_foot_kick_count >= same_foot_threshold) & (state.alternated_kick_count <= 3)
+
+
+def both_feet_clamp_terminate(env: ManagerBasedRLEnv, min_steps: int = 20) -> torch.Tensor:
+    state = get_juggle_state(env)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    return (state.both_feet_clamp_steps >= min_steps) & state.ball_started_near
 
 
 def ball_lost(
@@ -19,11 +103,11 @@ def ball_lost(
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
 ) -> torch.Tensor:
-    """Terminate if the ball falls below the configured height or travels too far from the robot."""
+    """Backward-compatible aggregate ball-loss check."""
     robot: Articulation = env.scene[robot_cfg.name]
     soccer: RigidObject = env.scene[soccer_cfg.name]
-    ball_height = soccer.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
-    horizontal_distance = torch.linalg.vector_norm(
+    height = soccer.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
+    distance = torch.linalg.vector_norm(
         soccer.data.root_pos_w[:, :2] - robot.data.root_pos_w[:, :2], dim=-1
     )
-    return torch.logical_or(ball_height < minimum_height, horizontal_distance > maximum_horizontal_distance)
+    return (height < minimum_height) | (distance > maximum_horizontal_distance)
