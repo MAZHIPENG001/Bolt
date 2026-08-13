@@ -56,8 +56,8 @@ def main():
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
-            # sample actions from -1 to 1
-            actions = 2 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
+            # sample actions from -1 to 9
+            actions = 10 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
             # apply actions
             env.step(actions)
 
