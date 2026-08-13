@@ -70,7 +70,7 @@ agent:
     experiment_name: "origin"
     write_interval: auto
     # 2000 iterations * 24 rollout steps, matching the reference runner.
-    checkpoint_interval: 48000
+    checkpoint_interval: 24000
 
 
 # Sequential trainer
