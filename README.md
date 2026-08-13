@@ -205,7 +205,6 @@ python scripts/skrl/train.py \
 ```
 ## 7.3 多卡训练
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
 torchrun \
     --standalone \
     --nnodes=1 \
@@ -221,7 +220,6 @@ torchrun \
 每卡 2048、四卡共 8192 个环境。建议先用每卡 128 个环境和很短的训练确认分布式链路：
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
 NCCL_DEBUG=INFO \
 torchrun \
     --standalone \
@@ -235,28 +233,10 @@ torchrun \
     --distributed
 ```
 
-启动日志中应分别出现 `local_rank=0/1/2/3` 和
-`logical_device=cuda:0/1/2/3`。如果错误明确来自 NCCL P2P（例如包含
-`peer access`、`ncclUnhandledCudaError` 或 `operation not supported`），可再用以下兼容模式排查：
-
-```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
-NCCL_DEBUG=INFO \
-NCCL_P2P_DISABLE=1 \
-NCCL_IB_DISABLE=1 \
-torchrun \
-    --standalone \
-    --nnodes=1 \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --num_envs 128 \
-    --max_iterations 2 \
-    --distributed
-```
-
-兼容模式会降低卡间通信性能，只应在普通启动确实报 NCCL/P2P 错误时使用。
+启动日志中应分别出现 `local_rank=0/1/2/3` 和 `device=cuda:0/1/2/3`。
+不要设置 `CUDA_VISIBLE_DEVICES`：Omniverse 与 CUDA 对屏蔽后设备的枚举可能不一致，
+日志会出现 `carb.cudainterop.plugin` 警告，严重时会导致非法显存访问。当前服务器要使用
+物理卡 0、1、2、3，只需设置 `--nproc_per_node=4`，`LOCAL_RANK` 会自动选择这四张卡。
 
 ## 7.4 查看训练信息和曲线
 

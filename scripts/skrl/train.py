@@ -107,20 +107,20 @@ if args_cli.distributed:
             f"Invalid local rank {distributed_local_rank} for local world size {distributed_local_world_size}"
         )
 
-    visible_devices = [item.strip() for item in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if item.strip()]
-    if visible_devices and distributed_local_rank >= len(visible_devices):
+    visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if visible_devices:
         parser.error(
-            f"LOCAL_RANK={distributed_local_rank}, but CUDA_VISIBLE_DEVICES only exposes "
-            f"{len(visible_devices)} device(s): {visible_devices}"
+            "Do not set CUDA_VISIBLE_DEVICES for distributed Isaac Sim/Isaac Lab runs. "
+            "Omniverse and CUDA can enumerate the masked devices differently, which may cause "
+            "illegal CUDA memory accesses. Unset it and let LOCAL_RANK select cuda:0,1,..."
         )
 
     args_cli.device = f"cuda:{distributed_local_rank}"
-    physical_device = visible_devices[distributed_local_rank] if visible_devices else str(distributed_local_rank)
     print(
         "[INFO][DistributedLauncher] "
         f"rank={distributed_rank}/{distributed_world_size} "
         f"local_rank={distributed_local_rank} "
-        f"logical_device={args_cli.device} physical_device={physical_device}",
+        f"device={args_cli.device}",
         flush=True,
     )
 
@@ -202,6 +202,45 @@ def _broadcast_from_main_process(value):
         )
         return values[0]
     return value
+
+
+def _install_tensorwise_skrl_parameter_broadcast() -> None:
+    """Avoid skrl's pickle-based broadcast of CUDA model state dictionaries.
+
+    skrl 2.0 broadcasts ``state_dict()`` with ``broadcast_object_list``. The
+    serialized tensors retain rank 0's CUDA device tag, so deserializing them
+    on another rank can trigger a cross-device CUDA copy. Broadcast each rank's
+    local parameter/buffer tensor in place instead.
+    """
+    import torch
+    import torch.distributed as dist
+    from skrl.models.torch import Model
+
+    @torch.no_grad()
+    def broadcast_parameters(self, *, rank: int = 0) -> None:
+        for name, tensor in self.state_dict().items():
+            if not torch.is_tensor(tensor):
+                raise TypeError(f"Model state entry {name!r} is not a tensor")
+            if not tensor.is_cuda:
+                raise RuntimeError(
+                    f"Model state entry {name!r} is on {tensor.device}; NCCL requires one local CUDA tensor per rank"
+                )
+            if tensor.numel() == 0:
+                continue
+            if tensor.is_contiguous():
+                dist.broadcast(tensor, src=rank)
+            else:
+                contiguous_tensor = tensor.contiguous()
+                dist.broadcast(contiguous_tensor, src=rank)
+                tensor.copy_(contiguous_tensor)
+
+    Model.broadcast_parameters = broadcast_parameters
+
+
+if args_cli.distributed and args_cli.ml_framework.startswith("torch"):
+    _install_tensorwise_skrl_parameter_broadcast()
+    if distributed_rank == 0:
+        print("[INFO][DistributedLauncher] Using tensor-wise skrl model broadcast", flush=True)
 
 
 def _as_float(value):
@@ -448,6 +487,19 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+
+    # Surface simulator-side asynchronous CUDA failures before the first NCCL
+    # model collective. Otherwise ProcessGroupNCCL reports the stale error and
+    # makes a PhysX/Kit failure look like a communication failure.
+    if args_cli.distributed and args_cli.ml_framework.startswith("torch"):
+        import torch
+
+        try:
+            torch.cuda.synchronize(device=env_cfg.sim.device)
+        except RuntimeError as error:
+            raise RuntimeError(
+                "CUDA failed while creating the Isaac Lab environment, before skrl model synchronization"
+            ) from error
 
     # convert to single-agent instance if required by the RL algorithm
     if isinstance(env.unwrapped, DirectMARLEnv) and algorithm in ["ppo"]:
