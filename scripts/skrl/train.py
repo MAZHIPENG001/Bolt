@@ -14,7 +14,6 @@ a more user-friendly way.
 
 import argparse
 import sys
-import os
 
 from isaaclab.app import AppLauncher
 
@@ -53,20 +52,6 @@ args_cli, hydra_args = parser.parse_known_args()
 # always enable cameras to record video
 if args_cli.video:
     args_cli.enable_cameras = True
-
-# Bind each distributed process to its GPU BEFORE launching Isaac Sim.
-# torchrun provides LOCAL_RANK=0,1,2,... for processes on this node.
-if args_cli.distributed:
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    args_cli.device = f"cuda:{local_rank}"
-
-    print(
-        f"[INFO][DistributedLauncher]: "
-        f"RANK={os.environ.get('RANK', '0')} "
-        f"LOCAL_RANK={local_rank} "
-        f"DEVICE={args_cli.device}",
-        flush=True,
-    )
 
 # clear out sys.argv for Hydra
 sys.argv = [sys.argv[0]] + hydra_args
