@@ -685,3 +685,6 @@ class BoltEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation
         self.sim.physx.enable_ccd = True
         self.sim.physx.bounce_threshold_velocity = 0.05
+        
+        # PhysX GPU buffer
+        self.sim.physx.gpu_max_rigid_patch_count = 2**18
