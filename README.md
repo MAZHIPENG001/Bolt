@@ -231,6 +231,18 @@ torchrun \
     --num_envs 128 \
     --max_iterations 2 \
     --distributed
+
+NCCL_PROTO=LL \
+NCCL_ALGO=Ring \
+torchrun \
+    --standalone \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --num_envs 8192 \
+    --max_iterations 100000 \
+    --distributed
 ```
 
 启动日志中应分别出现 `local_rank=0/1/2/3` 和 `device=cuda:0/1/2/3`。
