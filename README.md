@@ -185,19 +185,15 @@ python scripts/random_agent.py \
 scripts/skrl/train.py
 ```
 
-
-
 ## 7.1 基本训练
-
 ```bash
 python scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0
 ```
-
-
-
-## 7.2 指定环境数量
-
+```
+python scripts/skrl/train.py --help
+```
+## 7.2 单机训练
 
 ```bash
 python scripts/skrl/train.py \
@@ -206,7 +202,19 @@ python scripts/skrl/train.py \
     --num_envs 4096 \
     --headless \
     --distributed \
-    --checkpoint logs/skrl/inreal_v2_soccer/xxx/checkpoints/xxx.pt \
+    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-13_10-59-36_ppo_torch_origin/checkpoints/agent_96000.pt
+```
+## 7.3 多卡训练
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+torchrun \
+    --standalone \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --distributed
 ```
 
 训练时录制视频会额外消耗：**GPU+显存+渲染时间**,因此大规模训练时建议关闭**--video**。
