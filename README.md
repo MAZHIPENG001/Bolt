@@ -212,26 +212,13 @@ torchrun \
     scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0 \
     --headless \
-    --num_envs 2048 \
+    --num_envs 8192 \
     --distributed
 ```
 
-`--num_envs` 是每个进程（每张 GPU）的环境数，不是四张卡的总数。因此上面的配置是
-每卡 2048、四卡共 8192 个环境。建议先用每卡 128 个环境和很短的训练确认分布式链路：
+`--num_envs` 是每个进程（每张 GPU）的环境数
 
 ```bash
-NCCL_DEBUG=INFO \
-torchrun \
-    --standalone \
-    --nnodes=1 \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --num_envs 128 \
-    --max_iterations 2 \
-    --distributed
-
 NCCL_PROTO=LL \
 NCCL_ALGO=Ring \
 torchrun \
