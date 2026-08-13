@@ -218,6 +218,30 @@ torchrun \
     --distributed
 ```
 
+## 7.4 查看训练信息和曲线
+
+训练启动时，终端会打印任务、设备、并行环境数、观测/动作空间、PPO 批次大小、学习率、日志目录以及各模型的参数量。训练过程中会定期打印 reward、episode、loss、学习率和环境上报的全部标量。
+
+`--log_interval` 的单位是 PPO policy iteration，默认每 100 次迭代打印一次并写入一次 TensorBoard。需要更密集的日志时，例如每 10 次迭代记录一次：
+
+```bash
+python scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --log_interval 10
+```
+
+训练脚本启动时会打印可直接执行的 TensorBoard 命令。也可以在另一个终端手动启动：
+
+```bash
+conda activate isaaclab
+tensorboard \
+    --logdir logs/skrl/inreal_v2_soccer \
+    --port 6006
+```
+
+然后浏览器访问 `http://localhost:6006`，即可实时查看 reward、policy/value loss、episode 长度、学习率和各奖励项曲线。传入 `--log_interval 0` 可以同时关闭终端指标和 TensorBoard 标量记录。
+
 训练时录制视频会额外消耗：**GPU+显存+渲染时间**,因此大规模训练时建议关闭**--video**。
 
 

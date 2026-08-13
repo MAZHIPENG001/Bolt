@@ -31,6 +31,15 @@ parser.add_argument(
 parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint to resume training.")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
 parser.add_argument(
+    "--log_interval",
+    type=int,
+    default=100,
+    help=(
+        "Interval, in policy iterations, for printing training metrics and writing TensorBoard data. "
+        "Set to 0 to disable metric logging."
+    ),
+)
+parser.add_argument(
     "--ml_framework",
     type=str,
     default="torch",
@@ -49,6 +58,8 @@ parser.add_argument(
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
+if args_cli.log_interval < 0:
+    parser.error("--log_interval must be greater than or equal to 0")
 # always enable cameras to record video
 if args_cli.video:
     args_cli.enable_cameras = True
@@ -63,8 +74,11 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 import gymnasium as gym
+import math
 import os
 import random
+import shlex
+from collections.abc import Mapping
 from datetime import datetime
 
 import skrl
@@ -107,6 +121,166 @@ algorithm = args_cli.algorithm.lower()
 agent_cfg_entry_point = "skrl_cfg_entry_point" if algorithm in ["ppo"] else f"skrl_{algorithm}_cfg_entry_point"
 
 
+def _as_float(value):
+    """Convert a scalar tracked by skrl to a Python float."""
+    if hasattr(value, "item"):
+        value = value.item()
+    return float(value)
+
+
+def _summarize_tracking_data(tracking_data: Mapping) -> dict[str, float]:
+    """Apply the same reductions as skrl's TensorBoard writer."""
+    summary = {}
+    for tag, values in tracking_data.items():
+        try:
+            numeric_values = [_as_float(value) for value in values]
+        except (TypeError, ValueError):
+            continue
+        if not numeric_values:
+            continue
+        if tag.endswith("(min)"):
+            summary[tag] = min(numeric_values)
+        elif tag.endswith("(max)"):
+            summary[tag] = max(numeric_values)
+        else:
+            summary[tag] = sum(numeric_values) / len(numeric_values)
+    return summary
+
+
+def _format_metric(value: float) -> str:
+    absolute_value = abs(value)
+    if absolute_value >= 10000 or (absolute_value != 0 and absolute_value < 0.001):
+        return f"{value:.4e}"
+    return f"{value:.6f}"
+
+
+def _attach_console_metric_printer(agent, rollouts: int) -> None:
+    """Print the same scalar values whenever skrl writes to TensorBoard."""
+    original_write_tracking_data = agent.write_tracking_data
+
+    def write_tracking_data(*args, **kwargs):
+        timestep = kwargs.get("timestep", args[0] if args else 0)
+        timesteps = kwargs.get("timesteps", args[1] if len(args) > 1 else 0)
+        summary = _summarize_tracking_data(agent.tracking_data)
+
+        result = original_write_tracking_data(*args, **kwargs)
+
+        progress = 100.0 * timestep / timesteps if timesteps else 0.0
+        iteration = math.ceil(timestep / rollouts) if rollouts else timestep
+        print(
+            f"\n[TRAIN] iteration={iteration}  step={timestep}/{timesteps}  progress={progress:.2f}%",
+            flush=True,
+        )
+        for tag, value in sorted(summary.items()):
+            print(f"[TRAIN]   {tag}: {_format_metric(value)}", flush=True)
+        return result
+
+    agent.write_tracking_data = write_tracking_data
+
+
+def _iter_models(models, prefix=""):
+    """Yield models from both single-agent and multi-agent model mappings."""
+    if isinstance(models, Mapping):
+        for name, value in models.items():
+            qualified_name = f"{prefix}/{name}" if prefix else str(name)
+            if isinstance(value, Mapping):
+                yield from _iter_models(value, qualified_name)
+            else:
+                yield qualified_name, value
+
+
+def _count_array_elements(value) -> int:
+    """Count array elements in a nested JAX/Flax state without importing JAX."""
+    if isinstance(value, Mapping):
+        return sum(_count_array_elements(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_count_array_elements(item) for item in value)
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return 0
+    return math.prod(shape) if shape else 1
+
+
+def _model_parameter_counts(model) -> tuple[int | None, int | None]:
+    """Return total and trainable parameter counts for Torch or JAX models."""
+    parameters = getattr(model, "parameters", None)
+    if callable(parameters):
+        model_parameters = list(parameters())
+        total = sum(parameter.numel() for parameter in model_parameters)
+        trainable = sum(parameter.numel() for parameter in model_parameters if parameter.requires_grad)
+        return total, trainable
+
+    state_dict = getattr(model, "state_dict", None)
+    state = getattr(state_dict, "params", state_dict)
+    total = _count_array_elements(state)
+    return (total, total) if total else (None, None)
+
+
+def _print_training_summary(env, runner, agent_cfg: dict, log_dir: str, rollouts: int) -> None:
+    """Print the effective training setup and instantiated model sizes."""
+    trainer_cfg = agent_cfg["trainer"]
+    ppo_cfg = agent_cfg["agent"]
+    timesteps = int(trainer_cfg["timesteps"])
+    num_envs = int(getattr(env, "num_envs", 1))
+    iterations = math.ceil(timesteps / rollouts)
+    mini_batches = int(ppo_cfg.get("mini_batches", 1))
+    samples_per_update = num_envs * rollouts
+    mini_batch_size = samples_per_update // mini_batches
+    write_interval = int(getattr(runner.agent, "write_interval", 0))
+
+    print("\n[TRAIN] ==================== Training configuration ====================")
+    print(f"[TRAIN] task: {args_cli.task}")
+    print(f"[TRAIN] algorithm/framework: {args_cli.algorithm} / {args_cli.ml_framework}")
+    print(f"[TRAIN] device: {getattr(env, 'device', 'unknown')}")
+    print(f"[TRAIN] seed: {agent_cfg['seed']}")
+    print(f"[TRAIN] parallel environments (per process): {num_envs}")
+    print(f"[TRAIN] observation space: {getattr(env, 'observation_space', 'unknown')}")
+    print(f"[TRAIN] state space: {getattr(env, 'state_space', 'unknown')}")
+    print(f"[TRAIN] action space: {getattr(env, 'action_space', 'unknown')}")
+    print(f"[TRAIN] iterations / vector steps: {iterations} / {timesteps}")
+    print(f"[TRAIN] rollouts / samples per update: {rollouts} / {samples_per_update}")
+    print(
+        "[TRAIN] epochs / mini-batches / mini-batch size: "
+        f"{ppo_cfg.get('learning_epochs')} / {mini_batches} / {mini_batch_size}"
+    )
+    print(f"[TRAIN] learning rate: {ppo_cfg.get('learning_rate')}")
+    if write_interval:
+        print(
+            f"[TRAIN] metric interval: {write_interval} vector steps "
+            f"(~{write_interval / rollouts:g} policy iterations)"
+        )
+    else:
+        print("[TRAIN] metric logging: disabled")
+    print(f"[TRAIN] experiment directory: {log_dir}")
+    if args_cli.checkpoint:
+        print(f"[TRAIN] resume checkpoint: {args_cli.checkpoint}")
+
+    print("[TRAIN] models:")
+    seen_models = {}
+    for role, model in _iter_models(getattr(runner.agent, "models", {})):
+        if model is None:
+            continue
+        if id(model) in seen_models:
+            print(f"[TRAIN]   {role}: shared with {seen_models[id(model)]}")
+            continue
+        seen_models[id(model)] = role
+        total, trainable = _model_parameter_counts(model)
+        parameter_text = "parameter count unavailable"
+        if total is not None:
+            parameter_text = f"{total:,} parameters ({trainable:,} trainable)"
+        print(f"[TRAIN]   {role}: {type(model).__name__}, {parameter_text}")
+    print("[TRAIN] =================================================================\n")
+
+
+def _flush_final_metrics(agent, timesteps: int) -> None:
+    """Write a final partial logging window and flush the TensorBoard event file."""
+    if getattr(agent, "write_interval", 0) > 0 and getattr(agent, "tracking_data", None):
+        agent.write_tracking_data(timestep=timesteps, timesteps=timesteps)
+    writer = getattr(agent, "writer", None)
+    if writer is not None and hasattr(writer, "flush"):
+        writer.flush()
+
+
 @hydra_task_config(args_cli.task, agent_cfg_entry_point)
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict):
     """Train with skrl agent."""
@@ -120,6 +294,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # max iterations for training
     if args_cli.max_iterations:
         agent_cfg["trainer"]["timesteps"] = args_cli.max_iterations * agent_cfg["agent"]["rollouts"]
+    rollouts = int(agent_cfg["agent"]["rollouts"])
+    agent_cfg["agent"]["experiment"]["write_interval"] = args_cli.log_interval * rollouts
     agent_cfg["trainer"]["close_environment_at_exit"] = False
     # configure the ML framework into the global skrl variable
     if args_cli.ml_framework.startswith("jax"):
@@ -137,7 +313,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # specify directory for logging experiments
     log_root_path = os.path.join("logs", "skrl", agent_cfg["agent"]["experiment"]["directory"])
     log_root_path = os.path.abspath(log_root_path)
+    is_main_process = not args_cli.distributed or int(os.environ.get("RANK", "0")) == 0
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
+    if is_main_process and args_cli.log_interval:
+        tensorboard_command = (
+            f"conda run -n isaaclab tensorboard --logdir {shlex.quote(log_root_path)} --port 6006"
+        )
+        print(f"[INFO] View live training curves: {tensorboard_command}")
     # specify directory for logging runs: {time-stamp}_{run_name}
     log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{algorithm}_{args_cli.ml_framework}"
     # The Ray Tune workflow extracts experiment name using the logging line below, hence, do not change it (see PR #2346, comment-2819298849)
@@ -185,6 +367,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # https://skrl.readthedocs.io/en/latest/api/utils/runner.html
     runner = Runner(env, agent_cfg)
 
+    if is_main_process:
+        _print_training_summary(env, runner, agent_cfg, log_dir, rollouts)
+        if getattr(runner.agent, "write_interval", 0) > 0:
+            _attach_console_metric_printer(runner.agent, rollouts)
+
     # load checkpoint (if specified)
     if resume_path:
         print(f"[INFO] Loading model checkpoint from: {resume_path}")
@@ -192,6 +379,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # run training
     runner.run()
+    if is_main_process:
+        _flush_final_metrics(runner.agent, int(agent_cfg["trainer"]["timesteps"]))
 
     # close the simulator
     env.close()
