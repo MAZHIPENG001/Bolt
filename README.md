@@ -193,7 +193,7 @@ python scripts/skrl/train.py \
 ```
 python scripts/skrl/train.py --help
 ```
-## 7.2 单机训练
+## 7.2 单卡训练/继续训练
 
 ```bash
 python scripts/skrl/train.py \
@@ -201,7 +201,6 @@ python scripts/skrl/train.py \
     --max_iterations 10000 \
     --num_envs 4096 \
     --headless \
-    --distributed \
     --checkpoint logs/skrl/inreal_v2_soccer/2026-08-13_10-59-36_ppo_torch_origin/checkpoints/agent_96000.pt
 ```
 ## 7.3 多卡训练
@@ -214,9 +213,50 @@ torchrun \
     scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0 \
     --headless \
-    --num_envs 8192 \
+    --num_envs 2048 \
     --distributed
 ```
+
+`--num_envs` 是每个进程（每张 GPU）的环境数，不是四张卡的总数。因此上面的配置是
+每卡 2048、四卡共 8192 个环境。建议先用每卡 128 个环境和很短的训练确认分布式链路：
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+NCCL_DEBUG=INFO \
+torchrun \
+    --standalone \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --num_envs 128 \
+    --max_iterations 2 \
+    --distributed
+```
+
+启动日志中应分别出现 `local_rank=0/1/2/3` 和
+`logical_device=cuda:0/1/2/3`。如果错误明确来自 NCCL P2P（例如包含
+`peer access`、`ncclUnhandledCudaError` 或 `operation not supported`），可再用以下兼容模式排查：
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+NCCL_DEBUG=INFO \
+NCCL_P2P_DISABLE=1 \
+NCCL_IB_DISABLE=1 \
+torchrun \
+    --standalone \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --num_envs 128 \
+    --max_iterations 2 \
+    --distributed
+```
+
+兼容模式会降低卡间通信性能，只应在普通启动确实报 NCCL/P2P 错误时使用。
 
 ## 7.4 查看训练信息和曲线
 

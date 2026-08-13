@@ -13,6 +13,7 @@ a more user-friendly way.
 """Launch Isaac Sim Simulator first."""
 
 import argparse
+import os
 import sys
 
 from isaaclab.app import AppLauncher
@@ -22,7 +23,12 @@ parser = argparse.ArgumentParser(description="Train an RL agent with skrl.")
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument("--video_interval", type=int, default=2000, help="Interval between video recordings (in steps).")
-parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
+parser.add_argument(
+    "--num_envs",
+    type=int,
+    default=None,
+    help="Number of environments per process/GPU (not the global total in distributed runs).",
+)
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument(
@@ -64,6 +70,68 @@ if args_cli.log_interval < 0:
 if args_cli.video:
     args_cli.enable_cameras = True
 
+
+def _read_rank_env(name: str, default: int) -> int:
+    """Read and validate an integer rank environment variable."""
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        parser.error(f"Environment variable {name} must be an integer")
+
+
+# torchrun/JAX launchers expose ranks before Isaac Sim starts. Bind the simulator
+# here as well as in main(), so Kit, PhysX and the RL tensors all select the same
+# logical CUDA device from the beginning of the process.
+if args_cli.ml_framework.startswith("torch"):
+    distributed_rank = _read_rank_env("RANK", 0)
+    distributed_local_rank = _read_rank_env("LOCAL_RANK", 0)
+    distributed_world_size = _read_rank_env("WORLD_SIZE", 1)
+else:
+    distributed_rank = _read_rank_env("JAX_RANK", 0)
+    distributed_local_rank = _read_rank_env("JAX_LOCAL_RANK", 0)
+    distributed_world_size = _read_rank_env("JAX_WORLD_SIZE", 1)
+
+if distributed_world_size > 1 and not args_cli.distributed:
+    parser.error("A multi-process launcher was detected, but --distributed was not specified")
+
+if args_cli.distributed:
+    if distributed_world_size <= 1:
+        parser.error("--distributed requires torchrun (or a JAX multi-process launcher) with WORLD_SIZE > 1")
+    if not 0 <= distributed_rank < distributed_world_size:
+        parser.error(f"Invalid distributed rank {distributed_rank} for world size {distributed_world_size}")
+
+    local_world_size_name = "LOCAL_WORLD_SIZE" if args_cli.ml_framework.startswith("torch") else "JAX_LOCAL_WORLD_SIZE"
+    distributed_local_world_size = _read_rank_env(local_world_size_name, distributed_world_size)
+    if not 0 <= distributed_local_rank < distributed_local_world_size:
+        parser.error(
+            f"Invalid local rank {distributed_local_rank} for local world size {distributed_local_world_size}"
+        )
+
+    visible_devices = [item.strip() for item in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if item.strip()]
+    if visible_devices and distributed_local_rank >= len(visible_devices):
+        parser.error(
+            f"LOCAL_RANK={distributed_local_rank}, but CUDA_VISIBLE_DEVICES only exposes "
+            f"{len(visible_devices)} device(s): {visible_devices}"
+        )
+
+    args_cli.device = f"cuda:{distributed_local_rank}"
+    physical_device = visible_devices[distributed_local_rank] if visible_devices else str(distributed_local_rank)
+    print(
+        "[INFO][DistributedLauncher] "
+        f"rank={distributed_rank}/{distributed_world_size} "
+        f"local_rank={distributed_local_rank} "
+        f"logical_device={args_cli.device} physical_device={physical_device}",
+        flush=True,
+    )
+
+    # Hydra otherwise lets all ranks write to the same output directory.
+    if not any(argument.startswith("hydra.run.dir=") for argument in hydra_args):
+        rank_env_name = "RANK" if args_cli.ml_framework.startswith("torch") else "JAX_RANK"
+        hydra_args.append(
+            f"hydra.run.dir=outputs/${{now:%Y-%m-%d}}/${{now:%H-%M-%S}}/"
+            f"rank_${{oc.env:{rank_env_name},0}}"
+        )
+
 # clear out sys.argv for Hydra
 sys.argv = [sys.argv[0]] + hydra_args
 
@@ -75,7 +143,6 @@ simulation_app = app_launcher.app
 
 import gymnasium as gym
 import math
-import os
 import random
 import shlex
 from collections.abc import Mapping
@@ -119,6 +186,22 @@ import Bolt.tasks  # noqa: F401
 # config shortcuts
 algorithm = args_cli.algorithm.lower()
 agent_cfg_entry_point = "skrl_cfg_entry_point" if algorithm in ["ppo"] else f"skrl_{algorithm}_cfg_entry_point"
+
+
+def _broadcast_from_main_process(value):
+    """Broadcast a small Python value from rank 0 in a torch distributed run."""
+    if args_cli.ml_framework.startswith("torch") and skrl.config.torch.is_distributed:
+        import torch
+        import torch.distributed as dist
+
+        values = [value if distributed_rank == 0 else None]
+        dist.broadcast_object_list(
+            values,
+            src=0,
+            device=torch.device(f"cuda:{distributed_local_rank}"),
+        )
+        return values[0]
+    return value
 
 
 def _as_float(value):
@@ -225,6 +308,8 @@ def _print_training_summary(env, runner, agent_cfg: dict, log_dir: str, rollouts
     iterations = math.ceil(timesteps / rollouts)
     mini_batches = int(ppo_cfg.get("mini_batches", 1))
     samples_per_update = num_envs * rollouts
+    global_num_envs = num_envs * distributed_world_size
+    global_samples_per_update = samples_per_update * distributed_world_size
     mini_batch_size = samples_per_update // mini_batches
     write_interval = int(getattr(runner.agent, "write_interval", 0))
 
@@ -233,12 +318,18 @@ def _print_training_summary(env, runner, agent_cfg: dict, log_dir: str, rollouts
     print(f"[TRAIN] algorithm/framework: {args_cli.algorithm} / {args_cli.ml_framework}")
     print(f"[TRAIN] device: {getattr(env, 'device', 'unknown')}")
     print(f"[TRAIN] seed: {agent_cfg['seed']}")
-    print(f"[TRAIN] parallel environments (per process): {num_envs}")
+    print(
+        f"[TRAIN] parallel environments: {num_envs} per process/GPU, "
+        f"{global_num_envs} global across {distributed_world_size} process(es)"
+    )
     print(f"[TRAIN] observation space: {getattr(env, 'observation_space', 'unknown')}")
     print(f"[TRAIN] state space: {getattr(env, 'state_space', 'unknown')}")
     print(f"[TRAIN] action space: {getattr(env, 'action_space', 'unknown')}")
     print(f"[TRAIN] iterations / vector steps: {iterations} / {timesteps}")
-    print(f"[TRAIN] rollouts / samples per update: {rollouts} / {samples_per_update}")
+    print(
+        f"[TRAIN] rollouts / samples per update: {rollouts} / "
+        f"{samples_per_update} local / {global_samples_per_update} global"
+    )
     print(
         "[TRAIN] epochs / mini-batches / mini-batch size: "
         f"{ppo_cfg.get('learning_epochs')} / {mini_batches} / {mini_batch_size}"
@@ -303,17 +394,21 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # randomly sample a seed if seed = -1
     if args_cli.seed == -1:
-        args_cli.seed = random.randint(0, 10000)
+        sampled_seed = random.randint(0, 10000) if distributed_rank == 0 else None
+        args_cli.seed = _broadcast_from_main_process(sampled_seed)
 
     # set the agent and environment seed from command line
     # note: certain randomization occur in the environment initialization so we set the seed here
     agent_cfg["seed"] = args_cli.seed if args_cli.seed is not None else agent_cfg["seed"]
-    env_cfg.seed = agent_cfg["seed"]
+    # skrl offsets its own seed by rank, but the environment is constructed before
+    # Runner does so. Offset the environment seed explicitly to avoid identical
+    # trajectories and domain randomization on every GPU.
+    env_cfg.seed = agent_cfg["seed"] + distributed_rank if args_cli.distributed else agent_cfg["seed"]
 
     # specify directory for logging experiments
     log_root_path = os.path.join("logs", "skrl", agent_cfg["agent"]["experiment"]["directory"])
     log_root_path = os.path.abspath(log_root_path)
-    is_main_process = not args_cli.distributed or int(os.environ.get("RANK", "0")) == 0
+    is_main_process = distributed_rank == 0
     print(f"[INFO] Logging experiment in directory: {log_root_path}")
     if is_main_process and args_cli.log_interval:
         tensorboard_command = (
@@ -321,7 +416,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         )
         print(f"[INFO] View live training curves: {tensorboard_command}")
     # specify directory for logging runs: {time-stamp}_{run_name}
-    log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{algorithm}_{args_cli.ml_framework}"
+    requested_log_dir = (
+        datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{algorithm}_{args_cli.ml_framework}"
+        if is_main_process
+        else None
+    )
+    log_dir = _broadcast_from_main_process(requested_log_dir)
+    if log_dir is None:
+        # JAX does not use torch.distributed for object broadcasts. Its launcher
+        # should start ranks closely enough for this naming fallback.
+        log_dir = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{algorithm}_{args_cli.ml_framework}"
     # The Ray Tune workflow extracts experiment name using the logging line below, hence, do not change it (see PR #2346, comment-2819298849)
     print(f"Exact experiment name requested from command line: {log_dir}")
     if agent_cfg["agent"]["experiment"]["experiment_name"]:
@@ -333,10 +437,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     log_dir = os.path.join(log_root_path, log_dir)
 
     # dump the configuration into log-directory
-    dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
-    dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
-    dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
-    dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
+    if is_main_process:
+        dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
+        dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
+        dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
+        dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
 
     # get checkpoint path (to resume training)
     resume_path = retrieve_file_path(args_cli.checkpoint) if args_cli.checkpoint else None

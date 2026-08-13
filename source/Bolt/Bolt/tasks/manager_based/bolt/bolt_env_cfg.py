@@ -667,8 +667,9 @@ class CurriculumCfg:
 class BoltEnvCfg(ManagerBasedRLEnvCfg):
     """Reference-aligned privileged teacher task for soccer juggling."""
 
-    # Keep a safe default for the local 8 GB GPU; callers can override it.
-    scene: BoltSceneCfg = BoltSceneCfg(num_envs=256, env_spacing=5.0, replicate_physics=False)
+    # The environments contain the same assets, so physics replication avoids
+    # independently parsing thousands of identical robot/ball scenes.
+    scene: BoltSceneCfg = BoltSceneCfg(num_envs=256, env_spacing=5.0, replicate_physics=True)
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     events: EventCfg = EventCfg()
@@ -685,6 +686,6 @@ class BoltEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation
         self.sim.physx.enable_ccd = True
         self.sim.physx.bounce_threshold_velocity = 0.05
-        
+
         # PhysX GPU buffer
         self.sim.physx.gpu_max_rigid_patch_count = 2**18
