@@ -214,6 +214,7 @@ torchrun \
     scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0 \
     --headless \
+    --num_envs 4096 \
     --distributed
 ```
 
