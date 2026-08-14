@@ -586,13 +586,25 @@ class RewardsCfg:
         },
     )
 
-
+    '''6. 动作平滑 / 关节安全 / 控制正则'''
     arm_action_rate_penalty = RewTerm(
         func=mdp.arm_action_rate_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["arm_action_rate_penalty"],
         params={"joint_names": ARM_JOINTS, "juggle_discount": 0.7},
     )
-    
+    leg_action_rate_penalty = RewTerm(
+        func=mdp.leg_action_rate_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["leg_action_rate_penalty"],
+        params={"joint_names": LEG_JOINTS},
+    )
+    action_rate_l2 = RewTerm(
+        func=mdp.action_rate_l2,
+        weight=mdp.PHASE_1A_WEIGHTS["action_rate_l2"],
+    )
+    action_rate_2nd_l2 = RewTerm(
+        func=mdp.action_rate_2nd_l2,
+        weight=mdp.PHASE_1A_WEIGHTS["action_rate_2nd_l2"],
+    )
     ankle_pitch_vel_penalty = RewTerm(
         func=mdp.joint_group_velocity_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["ankle_pitch_vel_penalty"],
@@ -610,20 +622,6 @@ class RewardsCfg:
             "max_vel": 2.5,
             "juggle_discount": 1.0,
         },
-    )
-    
-    leg_action_rate_penalty = RewTerm(
-        func=mdp.leg_action_rate_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["leg_action_rate_penalty"],
-        params={"joint_names": LEG_JOINTS},
-    )
-    action_rate_l2 = RewTerm(
-        func=mdp.action_rate_l2,
-        weight=mdp.PHASE_1A_WEIGHTS["action_rate_l2"],
-    )
-    action_rate_2nd_l2 = RewTerm(
-        func=mdp.action_rate_2nd_l2,
-        weight=mdp.PHASE_1A_WEIGHTS["action_rate_2nd_l2"],
     )
     joint_limit = RewTerm(
         func=mdp.joint_pos_limits,
