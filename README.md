@@ -278,9 +278,9 @@ python scripts/skrl/play.py \
     --headless
 ```
 
-# 9. 机器人模型
-
-机器人 USD：
+# 9. 物理模型
+## 9.1机器人模型
+### 9.1.1机器人 USD：
 
 ```text
 data/assets/Inreal_v2/usd/
@@ -293,9 +293,7 @@ data/assets/Inreal_v2/usd/
 source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
 ```
 
-
-
-## 9.1 机器人主要关节
+### 9.1.2 机器人主要关节
 
 腿部：
 
@@ -330,7 +328,7 @@ right_shoulder_roll_joint
 right_elbow_joint
 ```
 
-# 10. 足球模型
+## 9.2 足球模型
 
 足球使用 Isaac Lab： **RigidObjectCfg** 进行定义。
 
@@ -349,17 +347,16 @@ y = 0
 z = 1.0
 ```
 
-足球配置位于：
+<!-- 足球配置位于：
 
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
-```
+``` -->
 
 
-# 11. 电机与控制
+# 10. 电机与控制
 
 机器人使用: **DCMotorCfg**
-
 
 配置不同关节组的：
 
@@ -385,23 +382,11 @@ elbow
 ```
 机器人当前使用： **Joint Position Action**, 即策略网络输出关节位置控制量。
 
+# 11. Observation
 
+环境采用：**HISTORY_LENGTH = 5**,即策略输入包含最近 **5 帧历史状态**。
 
-
-
-# 12. Observation
-
-环境采用：
-
-```text
-HISTORY_LENGTH = 5
-```
-
-即策略输入包含最近 **5 帧历史状态**。
-
-
-
-## 12.1 Policy Observation
+## 11.1 Policy Observation
 
 Policy 可获得的信息主要包括：
 
@@ -420,13 +405,11 @@ Policy 可获得的信息主要包括：
 左右脚与足球之间的位置关系
 ```
 
-并且 Policy Observation 中加入了一定的噪声。
-
-目的是提高策略对传感器误差和现实环境扰动的鲁棒性。
+并且 Policy Observation 中加入了一定的噪声,目的是提高策略对传感器误差和现实环境扰动的鲁棒性。
 
 
 
-## 12.2 Critic Observation
+## 11.2 Critic Observation
 
 Critic 使用更加完整的状态信息。
 
@@ -467,21 +450,11 @@ Critic
 
 
 
-# 13. Domain Randomization
+# 12. Domain Randomization
 
 为了提高模型鲁棒性，环境加入了多种 Domain Randomization。
 
 包括：
-
-## 足球
-
-```text
-摩擦系数
-恢复系数
-质量
-惯量
-```
-
 ## 机器人
 
 ```text
@@ -493,6 +466,15 @@ PD damping
 关节 armature
 默认关节位置
 虚拟脚部坐标系
+```
+
+## 足球
+
+```text
+摩擦系数
+恢复系数
+质量
+惯量
 ```
 
 ## Reset
@@ -509,7 +491,7 @@ PD damping
 
 
 
-## 13.1 外部扰动
+## 12.1 外部扰动
 
 训练过程中还会周期性向机器人施加随机速度扰动。
 
@@ -524,23 +506,14 @@ pitch
 yaw
 ```
 
-这样可以迫使策略学会在受到扰动后恢复平衡。
+可以迫使策略学会在受到扰动后恢复平衡。
+
+# 13. Reward 设计
+
+项目的核心任务:**稳定站立+控制足球+交替双脚+持续颠球**,因此奖励函数由多个部分组成。
 
 
-
-# 14. Reward 设计
-
-项目的核心任务
-
-```text
-稳定站立+控制足球+交替双脚+持续颠球
-```
-
-因此奖励函数由多个部分组成。
-
-
-
-## 14.1 足球相关奖励
+## 13.1 足球相关奖励
 
 例如：
 
@@ -565,7 +538,7 @@ ball_upward_vel
 
 
 
-## 14.2 双脚交替
+## 13.2 双脚交替
 
 项目特别限制机器人长期只使用同一只脚。
 
@@ -582,7 +555,7 @@ double_contact_penalty
 目标是学习：**左脚->右脚->左脚->右脚->...**形式的连续颠球策略。
 
 
-## 14.3 身体稳定性
+## 13.3 身体稳定性
 
 例如：
 
@@ -596,7 +569,7 @@ undesired_contacts
 
 鼓励机器人：**保持站立+减少身体大幅倾斜+减少不必要碰撞**
 
-## 14.4 动作平滑
+## 13.4 动作平滑
 
 包括：
 
@@ -609,7 +582,7 @@ joint velocity penalty
 ```
 主要用于避免:**动作突变,关节剧烈抖动,高频震荡**,使策略输出更加平滑。
 
-# 15. Curriculum Learning
+# 14. Curriculum Learning
 
 当前任务使用分阶段课程学习：
 
@@ -631,19 +604,17 @@ Phase 1b
 Episode Length
 Global Steps
 ```
-
 而不是简单根据固定训练步数切换。
 
 
-
-## 15.1 Curriculum 的意义
+## 14.1 Curriculum 的意义
 
 训练初期如果直接要求机器人：**连续稳定双脚颠球**任务难度过高。
 
 因此训练逻辑更接近：**首先学会站住->接近足球->正确触球->将足球踢起->使用另一只脚->连续交替->稳定颠球**
 
 
-# 16. Episode 终止条件
+# 15. Episode 终止条件
 
 Episode 在以下情况下可能结束：
 
@@ -659,12 +630,9 @@ Episode 在以下情况下可能结束：
 连续只使用同一只脚
 双脚长时间夹住足球
 ```
-
 默认：**episode_length_s = 15.0**,即一个 Episode 最长：**15 秒**
 
-
-
-# 17. 仿真参数
+# 16. 仿真参数
 
 当前主要参数：
 
@@ -678,38 +646,20 @@ decimation    = 4
 episode       = 15 s
 ```
 
-因此：
+**Physics Frequency = 1 / 0.005 = 200 Hz**
 
-```text
-Physics Frequency
-= 1 / 0.005
-= 200 Hz
-```
+策略控制周期：**0.005 × 4 = 0.02 s**
 
-策略控制周期：
-
-```text
-0.005 × 4
-= 0.02 s
-```
-
-因此 Policy Frequency 为：
-
-```text
-50 Hz
-```
+因此 Policy Frequency 为：**50 Hz**
 
 
-
-
-# 18. PPO 网络
+# 17. PPO 网络
 
 配置文件：
 
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml
 ```
-
 
 ## 主要超参数
 ```yaml
@@ -731,7 +681,7 @@ grad_norm_clip: 1.0
 seed = 42
 ```
 
-# 19. 日志保存位置
+# 18. 日志保存位置
 
 默认训练日志目录：**logs/skrl/inreal_v2_soccer/**
 
@@ -757,7 +707,7 @@ env.yaml 保存环境参数;
 agent.yaml 保存 PPO 参数。
 
 
-# 21. 主要源码
+# 19. 主要源码
 
 ## 环境配置
 
@@ -820,7 +770,7 @@ source/Bolt/Bolt/tasks/manager_based/bolt/mdp/juggle_state.py
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml
 ```
-# 22. 项目状态
+# 20. 项目状态
 
 本项目目前仍在持续开发中。
 
@@ -839,7 +789,7 @@ source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml
 * Sim-to-Real
 后续环境参数、奖励函数、课程学习策略以及 PPO 超参数可能持续调整。
 
-# 23. 致谢
+# 21. 致谢
 
 本项目基于以下开源项目与工具：
 

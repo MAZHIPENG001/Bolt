@@ -658,7 +658,7 @@ class CurriculumCfg:
             "episode_len_ema_threshold": 300.0,
             "min_global_steps": 240_000,
             "ema_alpha": 0.005,
-            "initial_phase": 0,
+            "initial_phase": 1,
         },
     )
 
