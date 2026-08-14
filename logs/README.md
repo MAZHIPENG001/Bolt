@@ -43,4 +43,4 @@ modelscope upload MaZp001/Bolt \
 modelscope download MaZp001/Bolt --repo-type model --local-dir .
 ```
 
-如果需要直接同步到当前 `data` 目录，可以将 `--local-dir` 后的路径改为 ``。执行前请确认本地同名文件可以被更新。
+如果需要直接同步到**当前目录**，可以将 `--local-dir` 后的路径改为 `.`执行前请确认本地同名文件可以被更新。
