@@ -213,6 +213,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, expe
             else:
                 actions = outputs[-1].get("mean_actions", outputs[0])
             # env stepping
+            # print(f"\33[93mactions:{actions}\33[0m")
             obs, _, _, _, _ = env.step(actions)
             states = env.state()
         if args_cli.video:

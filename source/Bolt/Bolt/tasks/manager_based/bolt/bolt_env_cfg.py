@@ -401,71 +401,108 @@ class EventCfg:
 @configclass
 class RewardsCfg:
     """Phase 1a weights; the curriculum switches these to Phase 1b in-place."""
-
+    '''1. 接近球 / 踢球准备奖励'''
+    # 让应该踢球的脚靠近球
     foot_ball_distance = RewTerm(
         func=mdp.foot_face_ball_distance_directional,
         weight=mdp.PHASE_1A_WEIGHTS["foot_ball_distance"],
         params={"std": 0.15, "unreachable_height": 0.3, "unreachable_vz": 0.2, "kick_zone_max_height": 0.4},
     )
+    # 身体朝向球
     robot_facing_ball = RewTerm(
         func=mdp.robot_facing_ball_reward,
         weight=mdp.PHASE_1A_WEIGHTS["robot_facing_ball"],
         params={"min_ball_dist": 0.4},
     )
+    # 下一步踢球的脚的高度/提前把下一只踢球脚抬起来
     next_kick_foot_height = RewTerm(
         func=mdp.next_kick_foot_height_reward,
         weight=mdp.PHASE_1A_WEIGHTS["next_kick_foot_height"],
         params={"target_height": 0.3, "max_track_height": 0.4, "std": 0.12},
     )
-    kick = RewTerm(
-        func=mdp.kick_reward,
-        weight=mdp.PHASE_1A_WEIGHTS["kick"],
-        params={"same_foot_scale": 0.0},
-    )
-    alternating_kick = RewTerm(
-        func=mdp.alternating_kick_reward,
-        weight=mdp.PHASE_1A_WEIGHTS["alternating_kick"],
-    )
-    kick_quality = RewTerm(
-        func=mdp.kick_quality_reward,
-        weight=mdp.PHASE_1A_WEIGHTS["kick_quality"],
-        params={"target_vz": 3.2, "std": 1.0, "min_vz": 0.5},
-    )
-    juggle_streak = RewTerm(
-        func=mdp.juggle_streak_reward,
-        weight=mdp.PHASE_1A_WEIGHTS["juggle_streak"],
-        params={"max_count": 5},
-    )
-    ball_height = RewTerm(
-        func=mdp.ball_height_reward,
-        weight=mdp.PHASE_1A_WEIGHTS["ball_height"],
-        params={"target_height": 0.8, "std": 0.15},
-    )
+    # 球接近速度,球落下来时让脚主动迎球/在球距进入一定区域后鼓励迎球速度
     ball_approach_vel = RewTerm(
         func=mdp.ball_approach_velocity_reward,
         weight=mdp.PHASE_1A_WEIGHTS["ball_approach_vel"],
         params={"activate_dist": 0.95, "deactivate_dist": 1.5, "max_approach_vel": 0.6},
     )
+
+    '''2. 核心颠球任务奖励'''
+    # 击球
+    kick = RewTerm(
+        func=mdp.kick_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["kick"],
+        params={"same_foot_scale": 0.0},
+    )
+    # 交替击球
+    alternating_kick = RewTerm(
+        func=mdp.alternating_kick_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["alternating_kick"],
+    )
+    # 希望球获得合适的向上速度
+    kick_quality = RewTerm(
+        func=mdp.kick_quality_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["kick_quality"],
+        params={"target_vz": 3.2, "std": 1.0, "min_vz": 0.5},
+    )
+    # 鼓励连续成功:能碰到球->这一次触球为下一次触球创造条件
+    juggle_streak = RewTerm(
+        func=mdp.juggle_streak_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["juggle_streak"],
+        params={"max_count": 5},
+    )
+
+    '''3. 球的飞行轨迹 / 球状态奖励'''
+    # 期望高度
+    ball_height = RewTerm(
+        func=mdp.ball_height_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["ball_height"],
+        params={"target_height": 0.8, "std": 0.15},
+    )
+    # 期望速度
     ball_upward_vel = RewTerm(
         func=mdp.ball_upward_velocity_reward,
         weight=mdp.PHASE_1A_WEIGHTS["ball_upward_vel"],
         params={"target_vel": 3.2, "std": 1.0, "max_vel": 3.5, "min_vel": 0.5},
     )
+    # 限制水平速度
     ball_horiz_vel_penalty = RewTerm(
         func=mdp.ball_horizontal_velocity_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["ball_horiz_vel_penalty"],
         params={"max_horiz_vel": 0.5},
     )
+    # 击球力度
     kick_force_penalty = RewTerm(
         func=mdp.kick_force_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["kick_force_penalty"],
         params={"max_speed": 3.5},
     )
-    robot_upright = RewTerm(
-        func=mdp.robot_upright_reward,
-        weight=mdp.PHASE_1A_WEIGHTS["robot_upright"],
-        params={"juggle_discount": 0.9},
+    # 防“夹球、踩球、把球停在脚边刷奖励”
+    ball_stationary_near_foot = RewTerm(
+        func=mdp.ball_stationary_near_foot_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["ball_stationary_near_foot"],
+        params={"sigma": 0.4, "vel_threshold": 0.5},
     )
+    ball_hold_duration = RewTerm(
+        func=mdp.ball_hold_duration_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["ball_hold_duration"],
+        params={"max_steps": 12},
+    )
+    ball_drop_idle_penalty = RewTerm(
+        func=mdp.ball_drop_idle_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["ball_drop_idle_penalty"],
+        params={"max_height": 0.5, "min_height": 0.15, "min_approach_vel": 0.1},
+    )
+    ball_alive_bonus = RewTerm(
+        func=mdp.ball_alive_bonus,
+        weight=mdp.PHASE_1A_WEIGHTS["ball_alive_bonus"],
+    )
+    ball_grounding_penalty = RewTerm(
+        func=mdp.ball_grounding_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["ball_grounding_penalty"],
+    )
+
+    '''4. 左右脚协调 / 防作弊奖励'''
     same_foot_kick_penalty = RewTerm(
         func=mdp.same_foot_kick_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["same_foot_kick_penalty"],
@@ -485,21 +522,25 @@ class RewardsCfg:
         weight=mdp.PHASE_1A_WEIGHTS["both_feet_clamp_penalty"],
         params={"saturate_steps": 8},
     )
-    ball_stationary_near_foot = RewTerm(
-        func=mdp.ball_stationary_near_foot_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["ball_stationary_near_foot"],
-        params={"sigma": 0.4, "vel_threshold": 0.5},
+    double_contact_penalty = RewTerm(
+        func=mdp.double_contact_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["double_contact_penalty"],
     )
-    ball_hold_duration = RewTerm(
-        func=mdp.ball_hold_duration_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["ball_hold_duration"],
-        params={"max_steps": 12},
+
+    '''5. 机器人稳定性 / 姿态奖励'''
+    # 约束整体不要倒
+    robot_upright = RewTerm(
+        func=mdp.robot_upright_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["robot_upright"],
+        params={"juggle_discount": 0.9},
     )
+    # 几何上没倒，还希望机器人：不要一边颠球一边疯狂平移或旋转
     stable_standing = RewTerm(
         func=mdp.stable_standing_reward,
         weight=mdp.PHASE_1A_WEIGHTS["stable_standing"],
         params={"vel_std": 0.3, "ang_vel_std": 0.5, "base_fraction": 0.2},
     )
+    # 躯干姿态
     torso_upright = RewTerm(
         func=mdp.torso_upright_reward,
         weight=mdp.PHASE_1A_WEIGHTS["torso_upright"],
@@ -515,19 +556,11 @@ class RewardsCfg:
         weight=mdp.PHASE_1A_WEIGHTS["juggling_yaw_penalty"],
         params={"max_yaw_vel": 0.5},
     )
-    double_contact_penalty = RewTerm(
-        func=mdp.double_contact_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["double_contact_penalty"],
-    )
+    # 腿负责颠球，上半身尽量稳定
     upper_body_joint_penalty = RewTerm(
         func=mdp.upper_body_joint_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["upper_body_joint_penalty"],
         params={"joint_names": UPPER_BODY_JOINTS, "std": 0.15, "juggle_discount": 0.7},
-    )
-    arm_action_rate_penalty = RewTerm(
-        func=mdp.arm_action_rate_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["arm_action_rate_penalty"],
-        params={"joint_names": ARM_JOINTS, "juggle_discount": 0.7},
     )
     arm_symmetry_penalty = RewTerm(
         func=mdp.arm_symmetry_penalty,
@@ -539,6 +572,27 @@ class RewardsCfg:
             "juggle_discount": 0.7,
         },
     )
+    juggling_lateral_leg_pose_penalty = RewTerm(
+        func=mdp.juggling_lateral_leg_pose_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["juggling_lateral_leg_pose_penalty"],
+        params={"joint_names": LATERAL_LEG_JOINTS, "std": 0.12, "juggle_discount": 1.0},
+    )
+    undesired_contacts = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=mdp.PHASE_1A_WEIGHTS["undesired_contacts"],
+        params={
+            "sensor_cfg": SceneEntityCfg("robot_contacts", body_names=UPPER_BODY_NAMES),
+            "threshold": 1.0,
+        },
+    )
+
+
+    arm_action_rate_penalty = RewTerm(
+        func=mdp.arm_action_rate_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["arm_action_rate_penalty"],
+        params={"joint_names": ARM_JOINTS, "juggle_discount": 0.7},
+    )
+    
     ankle_pitch_vel_penalty = RewTerm(
         func=mdp.joint_group_velocity_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["ankle_pitch_vel_penalty"],
@@ -557,28 +611,11 @@ class RewardsCfg:
             "juggle_discount": 1.0,
         },
     )
-    juggling_lateral_leg_pose_penalty = RewTerm(
-        func=mdp.juggling_lateral_leg_pose_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["juggling_lateral_leg_pose_penalty"],
-        params={"joint_names": LATERAL_LEG_JOINTS, "std": 0.12, "juggle_discount": 1.0},
-    )
-    ball_drop_idle_penalty = RewTerm(
-        func=mdp.ball_drop_idle_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["ball_drop_idle_penalty"],
-        params={"max_height": 0.5, "min_height": 0.15, "min_approach_vel": 0.1},
-    )
+    
     leg_action_rate_penalty = RewTerm(
         func=mdp.leg_action_rate_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["leg_action_rate_penalty"],
         params={"joint_names": LEG_JOINTS},
-    )
-    ball_alive_bonus = RewTerm(
-        func=mdp.ball_alive_bonus,
-        weight=mdp.PHASE_1A_WEIGHTS["ball_alive_bonus"],
-    )
-    ball_grounding_penalty = RewTerm(
-        func=mdp.ball_grounding_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["ball_grounding_penalty"],
     )
     action_rate_l2 = RewTerm(
         func=mdp.action_rate_l2,
@@ -593,16 +630,7 @@ class RewardsCfg:
         weight=mdp.PHASE_1A_WEIGHTS["joint_limit"],
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))},
     )
-    undesired_contacts = RewTerm(
-        func=mdp.undesired_contacts,
-        weight=mdp.PHASE_1A_WEIGHTS["undesired_contacts"],
-        params={
-            "sensor_cfg": SceneEntityCfg("robot_contacts", body_names=UPPER_BODY_NAMES),
-            "threshold": 1.0,
-        },
-    )
-
-
+    
 @configclass
 class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
