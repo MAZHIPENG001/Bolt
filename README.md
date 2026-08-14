@@ -272,9 +272,9 @@ tensorboard \
 python scripts/skrl/play.py \
     --task Bolt-Soccer-Teacher-v0 \
     --num_envs 10 \
+    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-14_12-56-20_ppo_torch_origin/checkpoints/agent_24000.pt \
     --video \
     --video_length 300 \
-    --checkpoint /path/to/checkpoint.pt \
     --headless
 ```
 
