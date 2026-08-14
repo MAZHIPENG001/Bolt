@@ -8,15 +8,110 @@
 https://github.com/MAZHIPENG001/Bolt
 ```
 
+# 1. PPO 训练
 
-
-## 1. 项目简介
-
-当前项目的主要强化学习环境为：
+训练脚本：
 
 ```text
-Bolt-Soccer-Teacher-v0
+scripts/skrl/train.py
 ```
+
+## 1.1 基本训练
+```bash
+python scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0
+```
+```
+python scripts/skrl/train.py --help
+```
+## 1.2 单卡训练/继续训练
+
+```bash
+python scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --max_iterations 10000 \
+    --num_envs 4096 \
+    --headless \
+    --checkpoint logs/skrl/inreal_v2_soccer/2026-07-13_10-59-36_ppo_torch_origin/checkpoints/agent_96000.pt
+```
+## 1.3 多卡训练
+```bash
+torchrun \
+    --standalone \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --num_envs 7192 \
+    --distributed
+```
+
+`--num_envs` 是每个进程（每张 GPU）的环境数
+
+```bash
+NCCL_PROTO=LL \
+NCCL_ALGO=Ring \
+torchrun \
+    --standalone \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --num_envs 7192 \
+    --max_iterations 100000 \
+    --distributed
+```
+
+启动日志中应分别出现 `local_rank=0/1/2/3` 和 `device=cuda:0/1/2/3`。
+不要设置 `CUDA_VISIBLE_DEVICES`：Omniverse 与 CUDA 对屏蔽后设备的枚举可能不一致，
+日志会出现 `carb.cudainterop.plugin` 警告，严重时会导致非法显存访问。当前服务器要使用
+物理卡 0、1、2、3，只需设置 `--nproc_per_node=4`，`LOCAL_RANK` 会自动选择这四张卡。
+
+## 1.4 查看训练信息和曲线
+
+训练启动时，终端会打印任务、设备、并行环境数、观测/动作空间、PPO 批次大小、学习率、日志目录以及各模型的参数量。训练过程中会定期打印 reward、episode、loss、学习率和环境上报的全部标量。
+
+`--log_interval` 的单位是 PPO policy iteration，默认每 100 次迭代打印一次并写入一次 TensorBoard。需要更密集的日志时，例如每 10 次迭代记录一次：
+
+```bash
+python scripts/skrl/train.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --headless \
+    --log_interval 10
+```
+
+训练脚本启动时会打印可直接执行的 TensorBoard 命令。也可以在另一个终端手动启动：
+
+```bash
+conda activate isaaclab
+tensorboard \
+    --logdir logs/skrl/inreal_v2_soccer \
+    --port 6006
+```
+
+然后浏览器访问 `http://localhost:6006`，即可实时查看 reward、policy/value loss、episode 长度、学习率和各奖励项曲线。传入 `--log_interval 0` 可以同时关闭终端指标和 TensorBoard 标量记录。
+
+训练时录制视频会额外消耗：**GPU+显存+渲染时间**,因此大规模训练时建议关闭**--video**。
+
+
+# 2. 模型回放与录制
+
+训练完成后使用：**scripts/skrl/play.py**加载模型。
+
+```bash
+python scripts/skrl/play.py \
+    --task Bolt-Soccer-Teacher-v0 \
+    --num_envs 10 \
+    --checkpoint logs/skrl/inreal_v2_soccer/2026-07-14_12-56-20_ppo_torch_origin/checkpoints/agent_24000.pt \
+    --video \
+    --video_length 300 \
+    --headless
+```
+
+## 3. 项目简介
+
+当前项目的主要强化学习环境为： **Bolt-Soccer-Teacher-v0**
 
 任务目标是训练 **Inreal V2 人形机器人**使用双脚控制足球，在保持身体平衡的同时完成连续足球颠球动作。
 
@@ -40,7 +135,7 @@ Bolt-Soccer-Teacher-v0
 
 
 
-# 2. 项目目录
+# 4. 项目目录
 
 ```text
 Bolt/
@@ -90,16 +185,12 @@ Bolt/
 
 
 
-# 3. 环境要求
+# 5. 环境要求
 
-本项目需要在已经正确安装的 **Isaac Lab** 环境中运行。
+本项目需要在已经正确安装的 **Isaac Lab 2.1.1** 环境中运行。
 
 
-
-# 4. 安装
-
-## 4.1 克隆项目
-
+## 5.1 克隆项目
 使用 HTTPS：
 
 ```bash
@@ -107,54 +198,34 @@ git clone https://github.com/MAZHIPENG001/Bolt.git
 cd Bolt
 ```
 
-
-## 4.2 激活 Isaac Lab 环境
-
-
+## 5.2 激活 Isaac Lab 环境
 ```bash
 conda activate isaaclab
 ```
-
 检查 Isaac Lab：
-
 ```bash
 python -c "import isaaclab; print('Isaac Lab OK')"
 ```
-正常输出：
-
-```text
-Isaac Lab OK
-```
-
-
-
-## 4.3 安装 Bolt
-
+正常输出：**Isaac Lab OK**
+## 5.3 安装 Bolt
 进入项目根目录：
-
 ```bash
 cd ~/Bolt
 python -m pip install -e source/Bolt
 ```
-
 检查：
-
 ```bash
 python -c "import Bolt; print(Bolt.__file__)"
 ```
 
-
-
-# 5. 查看已经注册的环境
+# 6 环境测试
+## 6.1. 查看已经注册的环境
 
 ```bash
 python scripts/list_envs.py
 ```
 
-
-# 6 环境测试
-
-## 6.1 Zero Agent 测试
+## 6.2 Zero Agent 测试
 ```bash
 python scripts/zero_agent.py \
     --task Bolt-Soccer-Teacher-v0 \
@@ -168,7 +239,7 @@ python scripts/zero_agent.py \
 * 环境是否能够正常 reset
 * 仿真是否稳定
 
-## 6.2 Random Agent 测试
+## 6.3 Random Agent 测试
 
 ```bash
 python scripts/random_agent.py \
@@ -177,126 +248,21 @@ python scripts/random_agent.py \
 ```
 
 
-# 7. PPO 训练
 
-训练脚本：
-
-```text
-scripts/skrl/train.py
-```
-
-## 7.1 基本训练
-```bash
-python scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0
-```
-```
-python scripts/skrl/train.py --help
-```
-## 7.2 单卡训练/继续训练
-
-```bash
-python scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --max_iterations 10000 \
-    --num_envs 4096 \
-    --headless \
-    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-13_10-59-36_ppo_torch_origin/checkpoints/agent_96000.pt
-```
-## 7.3 多卡训练
-```bash
-torchrun \
-    --standalone \
-    --nnodes=1 \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --num_envs 8192 \
-    --distributed
-```
-
-`--num_envs` 是每个进程（每张 GPU）的环境数
-
-```bash
-NCCL_PROTO=LL \
-NCCL_ALGO=Ring \
-torchrun \
-    --standalone \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --num_envs 8192 \
-    --max_iterations 100000 \
-    --distributed
-```
-
-启动日志中应分别出现 `local_rank=0/1/2/3` 和 `device=cuda:0/1/2/3`。
-不要设置 `CUDA_VISIBLE_DEVICES`：Omniverse 与 CUDA 对屏蔽后设备的枚举可能不一致，
-日志会出现 `carb.cudainterop.plugin` 警告，严重时会导致非法显存访问。当前服务器要使用
-物理卡 0、1、2、3，只需设置 `--nproc_per_node=4`，`LOCAL_RANK` 会自动选择这四张卡。
-
-## 7.4 查看训练信息和曲线
-
-训练启动时，终端会打印任务、设备、并行环境数、观测/动作空间、PPO 批次大小、学习率、日志目录以及各模型的参数量。训练过程中会定期打印 reward、episode、loss、学习率和环境上报的全部标量。
-
-`--log_interval` 的单位是 PPO policy iteration，默认每 100 次迭代打印一次并写入一次 TensorBoard。需要更密集的日志时，例如每 10 次迭代记录一次：
-
-```bash
-python scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --log_interval 10
-```
-
-训练脚本启动时会打印可直接执行的 TensorBoard 命令。也可以在另一个终端手动启动：
-
-```bash
-conda activate isaaclab
-tensorboard \
-    --logdir logs/skrl/inreal_v2_soccer \
-    --port 6006
-```
-
-然后浏览器访问 `http://localhost:6006`，即可实时查看 reward、policy/value loss、episode 长度、学习率和各奖励项曲线。传入 `--log_interval 0` 可以同时关闭终端指标和 TensorBoard 标量记录。
-
-训练时录制视频会额外消耗：**GPU+显存+渲染时间**,因此大规模训练时建议关闭**--video**。
-
-
-# 8. 模型回放与录制
-
-训练完成后使用：**scripts/skrl/play.py**加载模型。
-
-```bash
-python scripts/skrl/play.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --num_envs 10 \
-    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-14_12-56-20_ppo_torch_origin/checkpoints/agent_24000.pt \
-    --video \
-    --video_length 300 \
-    --headless
-```
-
-# 9. 物理模型
-## 9.1机器人模型
-### 9.1.1机器人 USD：
-
+# 7. 详细信息
+## 7.1 物理模型
+### 7.1.1 机器人模型
+#### 7.1.1.1 机器人 USD：
 ```text
 data/assets/Inreal_v2/usd/
-└── inreal_v2_entity2_0528_robot_isaaclab.usd
+└── inreal_v2_entity2_0527_robot_isaaclab.usd
 ```
-
 机器人配置位于：
-
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
 ```
-
-### 9.1.2 机器人主要关节
-
+##### 机器人主要关节
 腿部：
-
 ```text
 left_hip_pitch_joint
 left_hip_roll_joint
@@ -312,9 +278,7 @@ right_knee_joint
 right_ankle_pitch_joint
 right_ankle_roll_joint
 ```
-
 上半身：
-
 ```text
 waist_pitch_joint
 waist_yaw_joint
@@ -328,7 +292,7 @@ right_shoulder_roll_joint
 right_elbow_joint
 ```
 
-## 9.2 足球模型
+##### 7.1.1.2 足球模型
 
 足球使用 Isaac Lab： **RigidObjectCfg** 进行定义。
 
@@ -354,7 +318,7 @@ source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
 ``` -->
 
 
-# 10. 电机与控制
+## 7.2 电机与控制
 
 机器人使用: **DCMotorCfg**
 
@@ -382,11 +346,11 @@ elbow
 ```
 机器人当前使用： **Joint Position Action**, 即策略网络输出关节位置控制量。
 
-# 11. Observation
+## 7.3 Observation
 
 环境采用：**HISTORY_LENGTH = 5**,即策略输入包含最近 **5 帧历史状态**。
 
-## 11.1 Policy Observation
+### 7.3.1 Policy Observation
 
 Policy 可获得的信息主要包括：
 
@@ -409,7 +373,7 @@ Policy 可获得的信息主要包括：
 
 
 
-## 11.2 Critic Observation
+### 7.3.2 Critic Observation
 
 Critic 使用更加完整的状态信息。
 
@@ -450,12 +414,12 @@ Critic
 
 
 
-# 12. Domain Randomization
+## 7.4 Domain Randomization
 
 为了提高模型鲁棒性，环境加入了多种 Domain Randomization。
 
 包括：
-## 机器人
+### 机器人
 
 ```text
 脚部摩擦系数
@@ -468,7 +432,7 @@ PD damping
 虚拟脚部坐标系
 ```
 
-## 足球
+### 足球
 
 ```text
 摩擦系数
@@ -477,7 +441,7 @@ PD damping
 惯量
 ```
 
-## Reset
+### Reset
 
 每次 Episode Reset 时，还会随机化：
 
@@ -489,9 +453,7 @@ PD damping
 足球状态
 ```
 
-
-
-## 12.1 外部扰动
+### 7.5 外部扰动
 
 训练过程中还会周期性向机器人施加随机速度扰动。
 
@@ -508,12 +470,12 @@ yaw
 
 可以迫使策略学会在受到扰动后恢复平衡。
 
-# 13. Reward 设计
+## 7.6 Reward 设计
 
 项目的核心任务:**稳定站立+控制足球+交替双脚+持续颠球**,因此奖励函数由多个部分组成。
 
 
-## 13.1 足球相关奖励
+### 7.6.1 足球相关奖励
 
 例如：
 
@@ -538,7 +500,7 @@ ball_upward_vel
 
 
 
-## 13.2 双脚交替
+### 7.6.2 双脚交替
 
 项目特别限制机器人长期只使用同一只脚。
 
@@ -555,7 +517,7 @@ double_contact_penalty
 目标是学习：**左脚->右脚->左脚->右脚->...**形式的连续颠球策略。
 
 
-## 13.3 身体稳定性
+### 7.6.3 身体稳定性
 
 例如：
 
@@ -569,7 +531,7 @@ undesired_contacts
 
 鼓励机器人：**保持站立+减少身体大幅倾斜+减少不必要碰撞**
 
-## 13.4 动作平滑
+### 7.6.4 动作平滑
 
 包括：
 
@@ -582,57 +544,25 @@ joint velocity penalty
 ```
 主要用于避免:**动作突变,关节剧烈抖动,高频震荡**,使策略输出更加平滑。
 
-# 14. Curriculum Learning
-
-当前任务使用分阶段课程学习：
-
-```text
-Phase 1a
-   │
-   │ 训练达到一定条件
-   ▼
-Phase 1b
-```
-
-课程切换会综合判断：
-
-```text
-双脚交替踢球成功率
-左脚踢球情况
-右脚踢球情况
-左右脚平衡程度
-Episode Length
-Global Steps
-```
-而不是简单根据固定训练步数切换。
-
-
-## 14.1 Curriculum 的意义
+## 7.7 Curriculum Learning
+当前任务使用分阶段课程学习：**Phase 1a --(训练达到一定条件)--> Phase 1b**
+综合判断：**双脚交替踢球成功率+左脚踢球情况+右脚踢球情况+左右脚平衡程度+Episode Length+Global Steps**,而不是简单根据固定训练步数切换。
+### 7.7.1 Curriculum 意义
 
 训练初期如果直接要求机器人：**连续稳定双脚颠球**任务难度过高。
 
 因此训练逻辑更接近：**首先学会站住->接近足球->正确触球->将足球踢起->使用另一只脚->连续交替->稳定颠球**
 
 
-# 15. Episode 终止条件
+## 7.8 Episode 终止条件
 
 Episode 在以下情况下可能结束：
 
-```text
-达到最大时间
-机器人高度过低
-机器人姿态倾斜过大
-上半身发生非法接触
-足球落地
-足球距离机器人太远
-足球高度过高
-足球跑到机器人后方
-连续只使用同一只脚
-双脚长时间夹住足球
-```
+**达到最大时间 || 机器人高度过低 || 机器人姿态倾斜过大 || 上半身发生非法接触 || 足球落地 || 足球距离机器人太远 || 足球高度过高 || 足球跑到机器人后方 || 连续只使用同一只脚 || 双脚长时间夹住足球**
+
 默认：**episode_length_s = 15.0**,即一个 Episode 最长：**15 秒**
 
-# 16. 仿真参数
+## 7.9 仿真参数
 
 当前主要参数：
 
@@ -653,15 +583,11 @@ episode       = 15 s
 因此 Policy Frequency 为：**50 Hz**
 
 
-# 17. PPO 网络
+## 7.10 PPO 网络
 
-配置文件：
+配置文件：**source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml**
 
-```text
-source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml
-```
-
-## 主要超参数
+### 主要超参数
 ```yaml
 rollouts: 24
 learning_epochs: 5
@@ -674,14 +600,9 @@ value_clip: 0.2
 entropy_loss_scale: 0.005
 grad_norm_clip: 1.0
 ```
+随机种子：**seed = 42**
 
-随机种子：
-
-```text
-seed = 42
-```
-
-# 18. 日志保存位置
+## 7.11 日志保存位置
 
 默认训练日志目录：**logs/skrl/inreal_v2_soccer/**
 
@@ -691,7 +612,7 @@ seed = 42
 logs/
 └── skrl/
     └── inreal_v2_soccer/
-        └── 2026-08-13_09-00-00_ppo_torch_origin/
+        └── 2026-07-13_09-00-00_ppo_torch_origin/
             ├── checkpoints/
             ├── params/
             │   ├── agent.yaml
@@ -702,14 +623,14 @@ logs/
 ```
 
 其中：
-env.yaml 保存环境参数;
+* **env.yaml** 保存环境参数;
 
-agent.yaml 保存 PPO 参数。
+* **agent.yaml** 保存 PPO 参数。
 
 
-# 19. 主要源码
+## 7.12 主要源码
 
-## 环境配置
+### 7.12.1 环境配置
 
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/bolt_env_cfg.py
@@ -728,7 +649,7 @@ Curriculum
 Simulation
 ```
 
-## 机器人和足球
+### 7.12.2 机器人和足球
 
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
@@ -742,35 +663,35 @@ PD 参数
 Robot Initial State
 Soccer
 ```
-## Observation
+### 7.12.3 Observation
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/mdp/observations.py
 ```
-## Reward
+### 7.12.4 Reward
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/mdp/rewards.py
 ```
-## Event / Domain Randomization
+### 7.12.5 Event / Domain Randomization
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/mdp/events.py
 ```
-## Curriculum
+### 7.12.6 Curriculum
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/mdp/curriculum.py
 ```
-## Termination
+### 7.12.7 Termination
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/mdp/terminations.py
 ```
-## 足球颠球状态管理
+### 7.12.8 足球颠球状态管理
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/mdp/juggle_state.py
 ```
-## PPO 配置
+### 7.12.9 PPO 配置
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml
 ```
-# 20. 项目状态
+# 8. 项目状态
 
 本项目目前仍在持续开发中。
 
@@ -789,7 +710,7 @@ source/Bolt/Bolt/tasks/manager_based/bolt/agents/skrl_ppo_cfg.yaml
 * Sim-to-Real
 后续环境参数、奖励函数、课程学习策略以及 PPO 超参数可能持续调整。
 
-# 21. 致谢
+# 9. 致谢
 
 本项目基于以下开源项目与工具：
 
