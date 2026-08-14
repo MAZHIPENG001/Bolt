@@ -2,11 +2,7 @@
 
 基于 **Isaac Lab** 的人形机器人足球颠球强化学习项目。
 
-项目地址：
-
-```text
-https://github.com/MAZHIPENG001/Bolt
-```
+项目地址：**https://github.com/MAZHIPENG001/Bolt**
 
 # 1. PPO 训练
 
@@ -189,8 +185,35 @@ Bolt/
 
 本项目需要在已经正确安装的 **Isaac Lab 2.1.1** 环境中运行。
 
+Isaaclab环境安装:  [IsaacLab/v2.1.1](https://isaac-sim.github.io/IsaacLab/v2.1.1/source/setup/installation/pip_installation.html)
+## 5.1 Isaac Lab 安装
+### 5.1.1 Installing Isaac Sim
+```bash
+conda create -n isaaclab python=3.10
+conda activate isaaclab
+pip install torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
+pip install --upgrade pip
+pip install 'isaacsim[all,extscache]==4.5.0' --extra-index-url https://pypi.nvidia.com
+# Verifying the Isaac Sim installation
+isaacsim
+```
+### 5.1.2 Installing Isaac Lab
+```bash
+git clone git@github.com:isaac-sim/IsaacLab.git
+sudo apt install cmake build-essential
+pip install -e .
+./isaaclab.sh --install
 
-## 5.1 克隆项目
+# Verifying the Isaac Lab installation
+# Option 1: Using the isaaclab.sh executable
+# note: this works for both the bundled python and the virtual environment
+./isaaclab.sh -p scripts/tutorials/00_sim/create_empty.py
+
+# Option 2: Using python in your virtual environment
+python scripts/tutorials/00_sim/create_empty.py
+```
+
+## 5.2 克隆项目
 使用 HTTPS：
 
 ```bash
@@ -198,7 +221,7 @@ git clone https://github.com/MAZHIPENG001/Bolt.git
 cd Bolt
 ```
 
-## 5.2 激活 Isaac Lab 环境
+## 5.3 激活 Isaac Lab 环境
 ```bash
 conda activate isaaclab
 ```
@@ -207,7 +230,7 @@ conda activate isaaclab
 python -c "import isaaclab; print('Isaac Lab OK')"
 ```
 正常输出：**Isaac Lab OK**
-## 5.3 安装 Bolt
+## 5.4 安装 Bolt
 进入项目根目录：
 ```bash
 cd ~/Bolt
