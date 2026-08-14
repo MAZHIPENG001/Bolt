@@ -6,11 +6,7 @@
 
 # 1. PPO 训练
 
-训练脚本：
-
-```text
-scripts/skrl/train.py
-```
+训练脚本：**scripts/skrl/train.py**
 
 ## 1.1 基本训练
 ```bash
@@ -42,9 +38,6 @@ torchrun \
     --num_envs 7192 \
     --distributed
 ```
-
-`--num_envs` 是每个进程（每张 GPU）的环境数
-
 ```bash
 NCCL_PROTO=LL \
 NCCL_ALGO=Ring \
@@ -104,6 +97,7 @@ python scripts/skrl/play.py \
     --video_length 300 \
     --headless
 ```
+模型权重上传与下载:  **logs/README.md**
 
 ## 3. 项目简介
 
@@ -221,11 +215,7 @@ git clone https://github.com/MAZHIPENG001/Bolt.git
 cd Bolt
 ```
 
-## 5.3 激活 Isaac Lab 环境
-```bash
-conda activate isaaclab
-```
-检查 Isaac Lab：
+## 5.3 检查 Isaac Lab 环境
 ```bash
 python -c "import isaaclab; print('Isaac Lab OK')"
 ```
@@ -280,12 +270,8 @@ python scripts/random_agent.py \
 data/assets/Inreal_v2/usd/
 └── inreal_v2_entity2_0527_robot_isaaclab.usd
 ```
-机器人配置位于：
-```text
-source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
-```
-##### 机器人主要关节
-腿部：
+机器人配置位于：**source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py**
+##### 腿部关节：
 ```text
 left_hip_pitch_joint
 left_hip_roll_joint
@@ -301,7 +287,7 @@ right_knee_joint
 right_ankle_pitch_joint
 right_ankle_roll_joint
 ```
-上半身：
+##### 上半身关节：
 ```text
 waist_pitch_joint
 waist_yaw_joint
@@ -320,27 +306,20 @@ right_elbow_joint
 足球使用 Isaac Lab： **RigidObjectCfg** 进行定义。
 
 主要参数：
-
 ```text
 半径：0.11 m
 质量：0.43 kg
 ```
-
 初始位置大约为：
-
 ```text
 x = 0.4
 y = 0
 z = 1.0
 ```
-
 <!-- 足球配置位于：
-
 ```text
 source/Bolt/Bolt/tasks/manager_based/bolt/assets_cfg.py
 ``` -->
-
-
 ## 7.2 电机与控制
 
 机器人使用: **DCMotorCfg**
