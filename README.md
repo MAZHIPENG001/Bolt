@@ -47,7 +47,7 @@ torchrun \
     scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0 \
     --headless \
-    --num_envs 7192 \
+    --num_envs 4096 \
     --max_iterations 100000 \
     --distributed
 ```
