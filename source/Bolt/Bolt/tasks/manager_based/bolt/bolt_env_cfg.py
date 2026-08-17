@@ -74,7 +74,7 @@ class BoltSceneCfg(InteractiveSceneCfg):
                 static_friction=0.8,
                 dynamic_friction=0.8,
                 restitution=0.0,
-                friction_combine_mode="max",
+                friction_combine_mode="average",
                 restitution_combine_mode="max",
             ),
         ),
@@ -171,6 +171,10 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.1, n_max=0.1),
             history_length=HISTORY_LENGTH,
         )
+        # This is controller state, not privileged simulator state.  Without it
+        # the actor is asked to optimize foot-specific rewards while only the
+        # critic knows which foot is expected next.
+        next_kick_foot = ObsTerm(func=mdp.next_kick_foot_obs)
         feet_pos_b = ObsTerm(
             func=mdp.feet_face_pos_b,
             noise=Unoise(n_min=-0.01, n_max=0.01),
@@ -242,9 +246,9 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("soccer"),
-            "static_friction_range": (0.5, 1.0),
-            "dynamic_friction_range": (0.5, 1.0),
-            "restitution_range": (0.40, 0.65),
+            "static_friction_range": (0.4, 0.7),
+            "dynamic_friction_range": (0.3, 0.6),
+            "restitution_range": (0.45, 0.55),
             "num_buckets": 32,
             "make_consistent": True,
         },
@@ -256,8 +260,8 @@ class EventCfg:
             "asset_cfg": SceneEntityCfg(
                 "robot", body_names=("left_ankle_roll_link", "right_ankle_roll_link")
             ),
-            "static_friction_range": (0.6, 1.2),
-            "dynamic_friction_range": (0.6, 1.2),
+            "static_friction_range": (0.5, 0.9),
+            "dynamic_friction_range": (0.4, 0.8),
             "restitution_range": (0.0, 0.0),
             "num_buckets": 32,
             "make_consistent": True,
@@ -406,7 +410,14 @@ class RewardsCfg:
     foot_ball_distance = RewTerm(
         func=mdp.foot_face_ball_distance_directional,
         weight=mdp.PHASE_1A_WEIGHTS["foot_ball_distance"],
-        params={"std": 0.15, "unreachable_height": 0.3, "unreachable_vz": 0.2, "kick_zone_max_height": 0.4},
+        params={
+            "std": 0.15,
+            "vertical_std": 0.08,
+            "ball_radius": 0.11,
+            "unreachable_height": 0.3,
+            "unreachable_vz": 0.2,
+            "kick_zone_max_height": 0.45,
+        },
     )
     # 身体朝向球
     robot_facing_ball = RewTerm(
@@ -418,7 +429,13 @@ class RewardsCfg:
     next_kick_foot_height = RewTerm(
         func=mdp.next_kick_foot_height_reward,
         weight=mdp.PHASE_1A_WEIGHTS["next_kick_foot_height"],
-        params={"target_height": 0.3, "max_track_height": 0.4, "std": 0.12},
+        params={
+            "target_height": 0.3,
+            "max_track_height": 0.75,
+            "std": 0.12,
+            "ball_radius": 0.11,
+            "activate_vz": 0.3,
+        },
     )
     # 球接近速度,球落下来时让脚主动迎球/在球距进入一定区域后鼓励迎球速度
     ball_approach_vel = RewTerm(
@@ -451,6 +468,18 @@ class RewardsCfg:
         weight=mdp.PHASE_1A_WEIGHTS["juggle_streak"],
         params={"max_count": 5},
     )
+    # Shape the current kick toward the opposite foot instead of rewarding
+    # only its instantaneous upward velocity.
+    kick_landing_target = RewTerm(
+        func=mdp.kick_landing_target_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["kick_landing_target"],
+        params={"std": 0.16, "min_upward_velocity": 0.8, "max_flight_time": 1.2},
+    )
+    next_foot_interception = RewTerm(
+        func=mdp.next_foot_interception_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["next_foot_interception"],
+        params={"std": 0.14, "min_flight_time": 0.05, "max_flight_time": 1.2},
+    )
 
     '''3. 球的飞行轨迹 / 球状态奖励'''
     # 期望高度
@@ -469,7 +498,9 @@ class RewardsCfg:
     ball_horiz_vel_penalty = RewTerm(
         func=mdp.ball_horizontal_velocity_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["ball_horiz_vel_penalty"],
-        params={"max_horiz_vel": 0.5},
+        # A small lateral velocity is necessary to transfer the ball between
+        # feet; penalize only loss of control rather than all lateral motion.
+        params={"free_horiz_vel": 0.6, "max_horiz_vel": 1.5},
     )
     # 击球力度
     kick_force_penalty = RewTerm(
@@ -487,6 +518,11 @@ class RewardsCfg:
         func=mdp.ball_hold_duration_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["ball_hold_duration"],
         params={"max_steps": 12},
+    )
+    low_ball_duration = RewTerm(
+        func=mdp.low_ball_duration_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["low_ball_duration"],
+        params={"max_steps": 40},
     )
     ball_drop_idle_penalty = RewTerm(
         func=mdp.ball_drop_idle_penalty,
@@ -510,7 +546,13 @@ class RewardsCfg:
     wrong_foot_proximity_penalty = RewTerm(
         func=mdp.wrong_foot_proximity_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["wrong_foot_proximity_penalty"],
-        params={"sigma": 0.16, "abs_threshold": 0.1, "activate_height": 0.5},
+        params={
+            "sigma": 0.16,
+            "abs_threshold": 0.1,
+            "activate_height": 0.5,
+            "ball_radius": 0.11,
+            "vertical_tolerance": 0.08,
+        },
     )
     double_foot_proximity_penalty = RewTerm(
         func=mdp.double_foot_proximity_penalty,
@@ -665,11 +707,15 @@ class TerminationsCfg:
     )
     single_foot_bias = DoneTerm(
         func=mdp.single_foot_bias_terminate,
-        params={"same_foot_threshold": 3},
+        params={"same_foot_threshold": 2},
     )
     both_feet_clamp = DoneTerm(
         func=mdp.both_feet_clamp_terminate,
         params={"min_steps": 20},
+    )
+    low_ball_trap = DoneTerm(
+        func=mdp.low_ball_trap_terminate,
+        params={"min_steps": 40},
     )
 
 
@@ -678,13 +724,14 @@ class CurriculumCfg:
     phase_1a_to_1b = CurrTerm(
         func=mdp.phase1a_to_1b_curriculum,
         params={
-            "alternated_kick_ema_threshold": 0.001,
-            "per_foot_kick_ema_threshold": 0.001,
-            "foot_balance_threshold": 0.001,
+            # Do not unlock the high-value phase after one accidental touch.
+            "alternated_kick_ema_threshold": 2.0,
+            "per_foot_kick_ema_threshold": 0.75,
+            "foot_balance_threshold": 0.6,
             "episode_len_ema_threshold": 300.0,
             "min_global_steps": 240_000,
             "ema_alpha": 0.005,
-            "initial_phase": 1,
+            "initial_phase": 0,
         },
     )
 
@@ -711,7 +758,9 @@ class BoltEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
         self.sim.physx.enable_ccd = True
-        self.sim.physx.bounce_threshold_velocity = 0.05
+        # Suppress restitution for tiny relative velocities so the ball settles
+        # instead of sustaining a low micro-bounce on one foot.
+        self.sim.physx.bounce_threshold_velocity = 0.5
 
         # PhysX GPU buffer
         self.sim.physx.gpu_max_rigid_patch_count = 2**18

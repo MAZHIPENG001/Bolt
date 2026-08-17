@@ -1,0 +1,35 @@
+#usda 1.0
+(
+    defaultPrim = "inreal_v2_entity2_0528_robot"
+    subLayers = [
+        @inreal_v2_entity2_0528_robot_isaaclab.usd@
+    ]
+)
+
+# The imported 0528 shoe-top boxes were 0.20 m wide and shifted 0.025 m
+# sideways while the visible L7/L71 meshes are only about 0.11 m wide.  These
+# overrides keep the binary robot asset untouched and align the active foot
+# colliders with the visuals used by the task.
+over "inreal_v2_entity2_0528_robot"
+{
+    over "collisions"
+    {
+        over "left_ankle_roll_link"
+        {
+            over "_geom_16"
+            {
+                double3 xformOp:scale = (0.088, 0.055, 0.02)
+                double3 xformOp:translate = (0.12, 0, -0.008)
+            }
+        }
+
+        over "right_ankle_roll_link"
+        {
+            over "_geom_31"
+            {
+                double3 xformOp:scale = (0.088, 0.055, 0.02)
+                double3 xformOp:translate = (0.12, 0, -0.008)
+            }
+        }
+    }
+}

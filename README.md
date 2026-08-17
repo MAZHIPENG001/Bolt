@@ -94,12 +94,12 @@ python scripts/skrl/play.py \
     --num_envs 10 \
     --checkpoint logs/skrl/inreal_v2_soccer/2026-08-14_12-56-20_ppo_torch_origin/checkpoints/agent_96000.pt \
     --video \
-    --video_length 300 \
+    --video_length 800 \
     --headless
 ```
 模型权重上传与下载:  **logs/README.md**
 
-## 3. 项目简介
+# 3. 项目简介
 
 当前项目的主要强化学习环境为： **Bolt-Soccer-Teacher-v0**
 

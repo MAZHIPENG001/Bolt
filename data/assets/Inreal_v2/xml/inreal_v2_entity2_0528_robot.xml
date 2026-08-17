@@ -99,8 +99,8 @@ Scene floor, lights, visualization assets, and the 1.12 m world spawn offset are
                   <geom name="left_foot10_collision" size="0.01 0.05" pos="0.135 0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3" class="foot_collision"/>
                   <geom name="left_foot11_collision" size="0.01 0.055" pos="0.14 -0.02 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3" class="foot_collision"/>
                   <geom name="left_foot12_collision" size="0.01 0.05" pos="0.135 -0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3" class="foot_collision"/>
-                  <!-- 鞋面碰撞体 -->
-                  <geom size="0.0925 0.1 0.015" pos="0.1245 0.025 -0.008" euler="0 0.35 0" type="box" group="3" class="foot_collision"/>
+                  <!-- 鞋面碰撞体：横向宽度与 L7 可视网格（约 0.11 m）一致。 -->
+                  <geom size="0.088 0.055 0.02" pos="0.12 0 -0.008" euler="0 0.35 0" type="box" group="3" class="foot_collision"/>
                 </body>
               </body>
             </body>
@@ -159,8 +159,8 @@ Scene floor, lights, visualization assets, and the 1.12 m world spawn offset are
                   <geom name="right_foot10_collision" size="0.01 0.05" pos="0.135 0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3" class="foot_collision"/>
                   <geom name="right_foot11_collision" size="0.01 0.055" pos="0.14 -0.02 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3" class="foot_collision"/>
                   <geom name="right_foot12_collision" size="0.01 0.05" pos="0.135 -0.04 -0.0563567" quat="0.707035 0 0.707179 0" type="cylinder" group="3" class="foot_collision"/>
-                  <!-- 简化鞋面碰撞体 -->
-                  <geom size="0.0925 0.1 0.015" pos="0.1245 -0.025 -0.008" euler="0 0.35 0" type="box" group="3" class="foot_collision"/>
+                  <!-- 鞋面碰撞体：横向宽度与 L71 可视网格（约 0.11 m）一致。 -->
+                  <geom size="0.088 0.055 0.02" pos="0.12 0 -0.008" euler="0 0.35 0" type="box" group="3" class="foot_collision"/>
                 </body>
               </body>
             </body>

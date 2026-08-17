@@ -61,16 +61,20 @@ def foot_face_ball_distance_directional(
     unreachable_height: float = 0.3,
     unreachable_vz: float = 0.2,
     kick_zone_max_height: float = 0.4,
+    ball_radius: float = 0.11,
+    vertical_std: float = 0.08,
 ) -> torch.Tensor:
-    """Guide only the next expected foot face toward a reachable ball."""
+    """Guide the expected foot below the ball without rewarding penetration."""
     state = get_juggle_state(env)
     _, soccer, left_pos, right_pos, ball_pos = _feet_and_ball(
         env, robot_cfg, soccer_cfg, use_face=True
     )
-    left_dist = torch.linalg.vector_norm(left_pos - ball_pos, dim=-1)
-    right_dist = torch.linalg.vector_norm(right_pos - ball_pos, dim=-1)
-    distance = torch.where(state.next_kick_foot == 1, left_dist, right_dist)
-    reward = torch.exp(-torch.square(distance) / (2.0 * std**2))
+    next_pos = torch.where((state.next_kick_foot == 1).unsqueeze(-1), left_pos, right_pos)
+    delta = ball_pos - next_pos
+    horizontal_distance = torch.linalg.vector_norm(delta[:, :2], dim=-1)
+    vertical_error = delta[:, 2] - ball_radius
+    reward = torch.exp(-torch.square(horizontal_distance) / (2.0 * std**2))
+    reward *= torch.exp(-torch.square(vertical_error) / (2.0 * vertical_std**2))
     ball_height = ball_pos[:, 2] - env.scene.env_origins[:, 2]
     ball_vz = soccer.data.root_lin_vel_w[:, 2]
     unreachable = ((ball_vz > unreachable_vz) & (ball_height > unreachable_height)) | (
@@ -103,20 +107,26 @@ def next_kick_foot_height_reward(
     target_height: float = 0.3,
     max_track_height: float = 0.4,
     std: float = 0.12,
+    ball_radius: float = 0.11,
+    activate_vz: float = 0.3,
 ) -> torch.Tensor:
     state = get_juggle_state(env)
-    robot, soccer, left_pos, right_pos, ball_pos = _feet_and_ball(env, robot_cfg, soccer_cfg)
+    _, soccer, left_pos, right_pos, ball_pos = _feet_and_ball(
+        env, robot_cfg, soccer_cfg, use_face=True
+    )
     left_height = left_pos[:, 2] - env.scene.env_origins[:, 2]
     right_height = right_pos[:, 2] - env.scene.env_origins[:, 2]
     ball_height = ball_pos[:, 2] - env.scene.env_origins[:, 2]
-    descending_and_low = (soccer.data.root_lin_vel_w[:, 2] < 0.0) & (ball_height < max_track_height)
-    target = torch.where(
-        descending_and_low,
-        ball_height.clamp(min=0.07, max=max_track_height),
-        torch.full_like(ball_height, target_height),
+    descending_and_reachable = (
+        (soccer.data.root_lin_vel_w[:, 2] < activate_vz) & (ball_height < max_track_height)
     )
+    target = (ball_height - ball_radius).clamp(min=0.07, max=target_height)
     foot_height = torch.where(state.next_kick_foot == 1, left_height, right_height)
-    return torch.exp(-torch.square(foot_height - target) / (2.0 * std**2)) * state.ball_in_juggle_range
+    return (
+        torch.exp(-torch.square(foot_height - target) / (2.0 * std**2))
+        * descending_and_reachable.float()
+        * state.ball_in_juggle_range
+    )
 
 
 def kick_reward(env: ManagerBasedRLEnv, same_foot_scale: float = 0.0) -> torch.Tensor:
@@ -156,7 +166,95 @@ def kick_quality_reward(
 
 def juggle_streak_reward(env: ManagerBasedRLEnv, max_count: int = 5) -> torch.Tensor:
     state = get_juggle_state(env)
-    return torch.clamp(state.alternating_count.float() / max(max_count, 1), 0.0, 1.0) * state.ball_in_juggle_range
+    # Pay the streak bonus only on a new alternating contact.  Paying it every
+    # frame lets the policy earn a streak once and then keep a low trapped ball
+    # near one foot for a much larger return than continued juggling.
+    return (
+        torch.clamp(state.alternating_count.float() / max(max_count, 1), 0.0, 1.0)
+        * state.alternated_this_step.float()
+        * state.ball_in_juggle_range
+    )
+
+
+def _predicted_next_foot_intercept(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg,
+    soccer_cfg: SceneEntityCfg,
+    ball_radius: float,
+    gravity: float,
+    max_flight_time: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return horizontal miss distance, descending flight time, and validity."""
+    state = get_juggle_state(env)
+    _, soccer, left_pos, right_pos, ball_pos = _feet_and_ball(
+        env, robot_cfg, soccer_cfg, use_face=True
+    )
+    next_pos = torch.where((state.next_kick_foot == 1).unsqueeze(-1), left_pos, right_pos)
+    ball_vz = soccer.data.root_lin_vel_w[:, 2]
+    contact_height = next_pos[:, 2] + ball_radius
+    discriminant = torch.square(ball_vz) + 2.0 * gravity * (ball_pos[:, 2] - contact_height)
+    flight_time = (ball_vz + torch.sqrt(torch.clamp(discriminant, min=0.0))) / gravity
+    predicted_xy = ball_pos[:, :2] + soccer.data.root_lin_vel_w[:, :2] * flight_time.unsqueeze(-1)
+    miss_distance = torch.linalg.vector_norm(predicted_xy - next_pos[:, :2], dim=-1)
+    valid = (discriminant >= 0.0) & (flight_time > 0.0) & (flight_time < max_flight_time)
+    return miss_distance, flight_time, valid
+
+
+def kick_landing_target_reward(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
+    ball_radius: float = 0.11,
+    gravity: float = 9.81,
+    max_flight_time: float = 1.2,
+    std: float = 0.16,
+    min_upward_velocity: float = 0.8,
+) -> torch.Tensor:
+    """Reward a kick whose ballistic landing point is over the next foot."""
+    state = get_juggle_state(env)
+    soccer: RigidObject = env.scene[soccer_cfg.name]
+    miss_distance, _, valid = _predicted_next_foot_intercept(
+        env, robot_cfg, soccer_cfg, ball_radius, gravity, max_flight_time
+    )
+    reward = torch.exp(-torch.square(miss_distance) / (2.0 * std**2))
+    active = (
+        state.alternated_this_step
+        & (soccer.data.root_lin_vel_w[:, 2] > min_upward_velocity)
+        & valid
+    )
+    return reward * active.float() * state.ball_in_juggle_range
+
+
+def next_foot_interception_reward(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
+    ball_radius: float = 0.11,
+    gravity: float = 9.81,
+    max_flight_time: float = 1.2,
+    std: float = 0.14,
+    min_flight_time: float = 0.05,
+    min_clearance: float = 0.08,
+) -> torch.Tensor:
+    """Move the expected foot underneath the predicted descending ball path."""
+    state = get_juggle_state(env)
+    _, _, left_pos, right_pos, ball_pos = _feet_and_ball(
+        env, robot_cfg, soccer_cfg, use_face=True
+    )
+    next_pos = torch.where((state.next_kick_foot == 1).unsqueeze(-1), left_pos, right_pos)
+    miss_distance, flight_time, valid = _predicted_next_foot_intercept(
+        env, robot_cfg, soccer_cfg, ball_radius, gravity, max_flight_time
+    )
+    reward = torch.exp(-torch.square(miss_distance) / (2.0 * std**2))
+    airborne = ball_pos[:, 2] > next_pos[:, 2] + ball_radius + min_clearance
+    active = (
+        (state.kick_count > 0)
+        & (flight_time > min_flight_time)
+        & valid
+        & airborne
+        & ~state.kick_this_step
+    )
+    return reward * active.float() * state.ball_in_juggle_range
 
 
 def ball_height_reward(
@@ -211,11 +309,13 @@ def ball_upward_velocity_reward(
 def ball_horizontal_velocity_penalty(
     env: ManagerBasedRLEnv,
     max_horiz_vel: float,
+    free_horiz_vel: float = 0.0,
     soccer_cfg: SceneEntityCfg = SceneEntityCfg("soccer"),
 ) -> torch.Tensor:
     soccer: RigidObject = env.scene[soccer_cfg.name]
     speed = torch.linalg.vector_norm(soccer.data.root_lin_vel_w[:, :2], dim=-1)
-    return torch.clamp(speed / max_horiz_vel, 0.0, 1.0) * _gate(env)
+    scale = max(max_horiz_vel - free_horiz_vel, 1.0e-6)
+    return torch.clamp((speed - free_horiz_vel) / scale, 0.0, 1.0) * _gate(env)
 
 
 def kick_force_penalty(
@@ -253,15 +353,24 @@ def wrong_foot_proximity_penalty(
     sigma: float = 0.16,
     abs_threshold: float = 0.1,
     activate_height: float = 0.5,
+    ball_radius: float = 0.11,
+    vertical_tolerance: float = 0.08,
 ) -> torch.Tensor:
     state = get_juggle_state(env)
-    _, _, left_pos, right_pos, ball_pos = _feet_and_ball(env, robot_cfg, soccer_cfg)
-    left_dist = torch.linalg.vector_norm(left_pos - ball_pos, dim=-1)
-    right_dist = torch.linalg.vector_norm(right_pos - ball_pos, dim=-1)
-    wrong_dist = torch.where(state.next_kick_foot == 1, right_dist, left_dist)
+    _, _, left_pos, right_pos, ball_pos = _feet_and_ball(
+        env, robot_cfg, soccer_cfg, use_face=True
+    )
+    wrong_pos = torch.where((state.next_kick_foot == 1).unsqueeze(-1), right_pos, left_pos)
+    wrong_delta = ball_pos - wrong_pos
+    wrong_dist = torch.linalg.vector_norm(wrong_delta[:, :2], dim=-1)
+    vertical_error = torch.abs(wrong_delta[:, 2] - ball_radius)
     ball_height = ball_pos[:, 2] - env.scene.env_origins[:, 2]
     proximity = torch.exp(-torch.square(wrong_dist) / (2.0 * sigma**2))
-    active = (wrong_dist < abs_threshold) & (ball_height < activate_height)
+    active = (
+        (wrong_dist < abs_threshold)
+        & (vertical_error < vertical_tolerance)
+        & (ball_height < activate_height)
+    )
     return proximity * active.float() * state.ball_in_juggle_range
 
 
@@ -301,6 +410,13 @@ def ball_stationary_near_foot_penalty(
 
 def ball_hold_duration_penalty(env: ManagerBasedRLEnv, max_steps: int = 12) -> torch.Tensor:
     return torch.clamp(get_juggle_state(env).hold_steps.float() / max(max_steps, 1), 0.0, 1.0)
+
+
+def low_ball_duration_penalty(env: ManagerBasedRLEnv, max_steps: int = 40) -> torch.Tensor:
+    """Penalize staying continuously in the low-bounce band after the first kick."""
+    return torch.clamp(
+        get_juggle_state(env).low_ball_steps.float() / max(max_steps, 1), 0.0, 1.0
+    )
 
 
 def stable_standing_reward(
@@ -493,7 +609,8 @@ def ball_alive_bonus(
     height = soccer.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
     horizontal_speed = torch.linalg.vector_norm(soccer.data.root_lin_vel_w[:, :2], dim=-1)
     height_shape = torch.exp(-torch.square(height - 0.6) / (2.0 * 0.24**2))
-    in_band = ((height > 0.18) & (height < 1.2)).float()
+    # The old 0.18 m lower bound paid an alive bonus for the low-foot trap.
+    in_band = ((height > 0.28) & (height < 1.2)).float()
     horizontal_control = torch.clamp(1.0 - horizontal_speed / 2.5, 0.0, 1.0)
     return _gate(env) * in_band * (0.7 * height_shape + 0.3 * horizontal_control)
 

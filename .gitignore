@@ -13,6 +13,7 @@
 **/*.usda
 **/*.usdc
 **/*.usdz
+!data/assets/Inreal_v2/usd/inreal_v2_entity2_0528_robot_contact.usda
 
 # Python
 .DS_Store

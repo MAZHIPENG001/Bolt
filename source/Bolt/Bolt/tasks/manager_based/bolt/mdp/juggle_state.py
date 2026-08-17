@@ -63,9 +63,15 @@ def _new_state(env: ManagerBasedRLEnv) -> SimpleNamespace:
         prev_kick_foot=zeros_long(),
         next_kick_foot=torch.ones(n, dtype=torch.long, device=device),
         alternating_count=zeros_long(),
+        same_foot_streak=zeros_long(),
         kick_cooldown=zeros_long(),
+        left_contact_release_steps=zeros_long(),
+        right_contact_release_steps=zeros_long(),
         hold_steps=zeros_long(),
+        low_ball_steps=zeros_long(),
         both_feet_clamp_steps=zeros_long(),
+        left_contact_armed=torch.ones(n, dtype=torch.bool, device=device),
+        right_contact_armed=torch.ones(n, dtype=torch.bool, device=device),
         kick_this_step=zeros_bool(),
         alternated_this_step=zeros_bool(),
         double_contact_this_step=zeros_bool(),
@@ -104,8 +110,12 @@ def reset_juggle_state(
         "same_foot_kick_count",
         "prev_kick_foot",
         "alternating_count",
+        "same_foot_streak",
         "kick_cooldown",
+        "left_contact_release_steps",
+        "right_contact_release_steps",
         "hold_steps",
+        "low_ball_steps",
         "both_feet_clamp_steps",
     ):
         getattr(state, name)[env_ids] = 0
@@ -117,6 +127,8 @@ def reset_juggle_state(
     ):
         getattr(state, name)[env_ids] = False
     state.next_kick_foot[env_ids] = first_foot
+    state.left_contact_armed[env_ids] = True
+    state.right_contact_armed[env_ids] = True
     # As in BeyondAmp_Mjlab, preset the previous foot to the opposite side so
     # a correct first contact receives the alternating-kick reward.
     state.last_kick_foot[env_ids] = 3 - first_foot
@@ -145,27 +157,37 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
     state.kick_this_step.zero_()
     state.alternated_this_step.zero_()
     state.double_contact_this_step.zero_()
+    state.ball_just_grounded.zero_()
 
     # The two sensors are filtered against the ball and retain all physics
     # substeps in their history, so short impacts are not missed at policy rate.
+    # Contact onset, rather than ball height/speed, defines an event.  The old
+    # height > 0.20 m check made low same-foot bounces completely invisible to
+    # the anti-cheating rewards and terminations.
+    physics_steps = max(int(env.cfg.decimation), 1)
     left_force = _filtered_contact_force(env, "left_foot_ball_contact")
     right_force = _filtered_contact_force(env, "right_foot_ball_contact")
-    left_kick = (
-        (left_force > 3.0)
-        & (left_dist < 0.24)
-        & (ball_speed > 0.55)
-        & (ball_height > 0.20)
-    )
-    right_kick = (
-        (right_force > 3.0)
-        & (right_dist < 0.24)
-        & (ball_speed > 0.55)
-        & (ball_height > 0.20)
-    )
+    left_contact = left_force > 3.0
+    right_contact = right_force > 3.0
 
-    cooldown_active = state.kick_cooldown > 0
-    left_kick &= ~cooldown_active
-    right_kick &= ~cooldown_active
+    state.left_contact_release_steps = torch.where(
+        left_contact,
+        torch.zeros_like(state.left_contact_release_steps),
+        state.left_contact_release_steps + physics_steps,
+    )
+    state.right_contact_release_steps = torch.where(
+        right_contact,
+        torch.zeros_like(state.right_contact_release_steps),
+        state.right_contact_release_steps + physics_steps,
+    )
+    state.left_contact_armed |= state.left_contact_release_steps >= physics_steps
+    state.right_contact_armed |= state.right_contact_release_steps >= physics_steps
+
+    left_kick = left_contact & state.left_contact_armed
+    right_kick = right_contact & state.right_contact_armed
+    state.left_contact_armed &= ~left_kick
+    state.right_contact_armed &= ~right_kick
+
     any_kick = left_kick | right_kick
     double_contact = left_kick & right_kick
     single_kick = any_kick & ~double_contact
@@ -193,11 +215,15 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
         state.alternating_count + 1,
         torch.where(same_foot, torch.zeros_like(state.alternating_count), state.alternating_count),
     )
+    state.same_foot_streak = torch.where(
+        same_foot,
+        state.same_foot_streak + 1,
+        torch.where(alternated, torch.zeros_like(state.same_foot_streak), state.same_foot_streak),
+    )
 
     # The reference task updates these counters at physics rate. This port is
     # evaluated once at policy rate, so counters advance by ``decimation`` to
     # preserve the same durations in seconds.
-    physics_steps = max(int(env.cfg.decimation), 1)
     cooldown_steps = 25
     state.kick_cooldown = torch.where(
         any_kick,
@@ -208,11 +234,27 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
         min_dist > 0.30, torch.zeros_like(state.kick_cooldown), state.kick_cooldown
     )
 
-    holding = (min_dist < 0.20) & (ball_speed < 0.25)
+    foot_contact = left_contact | right_contact
+    holding = (foot_contact & (ball_speed < 0.35)) | (
+        (min_dist < 0.20) & (ball_speed < 0.25)
+    )
     state.hold_steps = torch.where(
         holding,
         state.hold_steps + physics_steps,
         torch.clamp(state.hold_steps - physics_steps, min=0),
+    )
+
+    # A valid kick leaves the low contact band quickly.  Remaining below this
+    # height continuously is the characteristic low-bounce/same-foot exploit.
+    low_ball = (
+        (state.kick_count > 0)
+        & (ball_height > 0.14)
+        & (ball_height < 0.30)
+    )
+    state.low_ball_steps = torch.where(
+        low_ball,
+        state.low_ball_steps + physics_steps,
+        torch.zeros_like(state.low_ball_steps),
     )
     both_close = (
         (left_dist < 0.22)

@@ -10,7 +10,7 @@ from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[6]
 INREAL_V2_USD_PATH = (
-    _PROJECT_ROOT / "data/assets/Inreal_v2/usd/inreal_v2_entity2_0528_robot_isaaclab.usd"
+    _PROJECT_ROOT / "data/assets/Inreal_v2/usd/inreal_v2_entity2_0528_robot_contact.usda"
 )
 
 _NATURAL_FREQ = 7.0 * 2.0 * math.pi
@@ -43,13 +43,18 @@ INREAL_V2_CFG = ArticulationCfg(
             angular_damping=0.0,
             max_linear_velocity=100.0,
             max_angular_velocity=100.0,
-            max_depenetration_velocity=5.0,
+            # Keep overlap correction from acting like an artificial kick.
+            max_depenetration_velocity=1.0,
             enable_gyroscopic_forces=True,
         ),
+        # Override the larger importer/default contact envelope on all robot
+        # colliders.  Together with the ball offset this limits visible gaps to
+        # roughly 4 mm instead of centimetres.
+        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.002, rest_offset=0.0),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
             solver_position_iteration_count=8,
-            solver_velocity_iteration_count=2,
+            solver_velocity_iteration_count=4,
             sleep_threshold=0.005,
             stabilization_threshold=0.001,
         ),
@@ -185,22 +190,22 @@ SOCCER_CFG = RigidObjectCfg(
         radius=0.11,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
-            linear_damping=0.0,
-            angular_damping=0.0,
+            linear_damping=0.01,
+            angular_damping=0.01,
             max_linear_velocity=30.0,
             max_angular_velocity=100.0,
-            max_depenetration_velocity=5.0,
+            max_depenetration_velocity=1.0,
             enable_gyroscopic_forces=True,
             solver_position_iteration_count=8,
-            solver_velocity_iteration_count=2,
+            solver_velocity_iteration_count=4,
         ),
-        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+        collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.002, rest_offset=0.0),
         mass_props=sim_utils.MassPropertiesCfg(mass=0.43),
         physics_material=sim_utils.RigidBodyMaterialCfg(
             static_friction=0.6,
             dynamic_friction=0.6,
             restitution=0.54,
-            friction_combine_mode="max",
+            friction_combine_mode="average",
             restitution_combine_mode="max",
         ),
         visual_material=sim_utils.PreviewSurfaceCfg(

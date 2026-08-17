@@ -86,7 +86,12 @@ def single_foot_bias_terminate(
     same_foot_threshold: int = 3,
 ) -> torch.Tensor:
     state = get_juggle_state(env)
-    return (state.same_foot_kick_count >= same_foot_threshold) & (state.alternated_kick_count <= 3)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    # Consecutive misuse is what matters.  The old cumulative counter stopped
+    # terminating the exploit after an episode had already accumulated >3
+    # valid alternating contacts.
+    return state.same_foot_streak >= same_foot_threshold
 
 
 def both_feet_clamp_terminate(env: ManagerBasedRLEnv, min_steps: int = 20) -> torch.Tensor:
@@ -94,6 +99,14 @@ def both_feet_clamp_terminate(env: ManagerBasedRLEnv, min_steps: int = 20) -> to
     if not _phase_enabled(env):
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
     return (state.both_feet_clamp_steps >= min_steps) & state.ball_started_near
+
+
+def low_ball_trap_terminate(env: ManagerBasedRLEnv, min_steps: int = 40) -> torch.Tensor:
+    """End a phase-1b episode when the ball stays in the low-bounce band."""
+    state = get_juggle_state(env)
+    if not _phase_enabled(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    return (state.low_ball_steps >= min_steps) & state.ball_started_near
 
 
 def ball_lost(
