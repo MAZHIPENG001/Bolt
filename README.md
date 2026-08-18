@@ -48,7 +48,7 @@ torchrun \
     --task Bolt-Soccer-Teacher-v0 \
     --headless \
     --num_envs 4096 \
-    --max_iterations 100000 \
+    --max_iterations 10000 \
     --distributed
 ```
 
