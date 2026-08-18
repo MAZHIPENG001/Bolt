@@ -102,8 +102,11 @@ tensorboard \
 ## 1.5 深度相机策略
 
 `Bolt-Soccer-Depth-v0` 在 `torso_link` 上挂载 96×72 的批量深度相机。Actor 的球位置、
-球速度和脚到球向量均由深度点云估计，不读取足球刚体真值；Critic、奖励和终止条件仍可在训练时
-使用仿真真值。深度渲染开销较大，该环境默认使用 32 个并行环境，建议先从较小规模开始：
+球速度和脚到球向量均由深度点云估计，不读取足球刚体真值。奖励和课程统计也使用同一份
+深度球状态；击球、交替击球和飞行周期事件由深度轨迹及机器人正向运动学推断，不使用按足球
+对象过滤的仿真接触信号。Critic 和终止条件仍可在训练时使用仿真真值。深度任务使用独立的
+PPO 配置：Actor 只接收 `OBSERVATIONS`，Critic 才接收 `STATES`。深度渲染开销较大，建议先从
+较小规模开始：
 
 ```bash
 python scripts/skrl/train.py \
@@ -111,6 +114,9 @@ python scripts/skrl/train.py \
     --num_envs 32 \
     --headless
 ```
+
+修复前使用 `STATES` 训练出的 Depth checkpoint 实际依赖 Critic 真值，不能作为深度模型继续训练
+或部署；请使用当前配置从头训练。启动训练和回放时会自动校验这一输入约束。
 
 训练和回放脚本会为该任务自动启用相机。开始训练前，可用校准脚本比较深度估计与仿真真值；
 真值只在此诊断脚本中用于计算误差，不进入 Actor：
@@ -149,8 +155,8 @@ python scripts/tools/check_depth_ball.py \
 ```bash
 python scripts/skrl/play.py \
     --task Bolt-Soccer-Teacher-v0 \
-    --num_envs 10 \
-    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-14_12-56-20_ppo_torch_origin/checkpoints/agent_96000.pt \
+    --num_envs 1 \
+    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-18_14-15-06_ppo_torch_origin/checkpoints/agent_24000.pt \
     --video \
     --video_length 800 \
     --headless

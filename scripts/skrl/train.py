@@ -178,6 +178,8 @@ from isaaclab.utils.io import dump_pickle, dump_yaml
 
 from isaaclab_rl.skrl import SkrlVecEnvWrapper
 
+from policy_contract import validate_depth_environment_config, validate_depth_policy_config
+
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
@@ -414,6 +416,8 @@ def _flush_final_metrics(agent, timesteps: int) -> None:
 @hydra_task_config(args_cli.task, agent_cfg_entry_point)
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: dict):
     """Train with skrl agent."""
+    validate_depth_policy_config(args_cli.task, agent_cfg)
+    validate_depth_environment_config(args_cli.task, env_cfg)
     # override configurations with non-hydra CLI arguments
     env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device

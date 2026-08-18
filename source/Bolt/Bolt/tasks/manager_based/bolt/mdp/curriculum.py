@@ -7,10 +7,18 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from .depth_juggle_state import get_depth_juggle_state
 from .juggle_state import get_juggle_state
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
+
+
+def _curriculum_state(env: ManagerBasedRLEnv, update: bool = True):
+    """Use the same truth/depth event source as the configured rewards."""
+    if bool(getattr(env.cfg, "depth_reward_inputs", False)):
+        return get_depth_juggle_state(env, update=update)
+    return get_juggle_state(env, update=update)
 
 
 PHASE_1A_WEIGHTS: dict[str, float] = {
@@ -149,7 +157,7 @@ def phase1a_to_1b_curriculum(
         env._bolt_episode_len_ema = 10.0
         _apply_weights(env, PHASE_1B_WEIGHTS if initial_phase >= 1 else PHASE_1A_WEIGHTS)
 
-    state = get_juggle_state(env, update=False)
+    state = _curriculum_state(env, update=False)
     batch = torch.stack(
         [
             state.alternated_kick_count[env_ids].float().mean(),

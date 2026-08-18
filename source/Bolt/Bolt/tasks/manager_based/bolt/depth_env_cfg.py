@@ -10,7 +10,13 @@ from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from . import mdp
-from .bolt_env_cfg import HISTORY_LENGTH, BoltEnvCfg, BoltSceneCfg, ObservationsCfg
+from .bolt_env_cfg import (
+    HISTORY_LENGTH,
+    BoltEnvCfg,
+    BoltSceneCfg,
+    ObservationsCfg,
+    RewardsCfg,
+)
 
 
 @configclass
@@ -77,14 +83,21 @@ class DepthObservationsCfg(ObservationsCfg):
 
 
 @configclass
+class DepthRewardsCfg(RewardsCfg):
+    """Teacher reward formulas evaluated from depth-derived ball state."""
+
+
+@configclass
 class BoltDepthEnvCfg(BoltEnvCfg):
     """Deployable actor observations backed by a torso depth camera."""
 
     # Tiled rendering is substantially heavier than state-only simulation.
-    scene: BoltDepthSceneCfg = BoltDepthSceneCfg(
-        num_envs=32, env_spacing=5.0, replicate_physics=True
-    )
+    scene: BoltDepthSceneCfg = BoltDepthSceneCfg(num_envs=256, env_spacing=5.0, replicate_physics=True)
     observations: DepthObservationsCfg = DepthObservationsCfg()
+    rewards: DepthRewardsCfg = DepthRewardsCfg()
+    # Reward helpers use this explicit contract instead of checking whether a
+    # simulator ball happens to exist in the scene.
+    depth_reward_inputs: bool = True
 
     def __post_init__(self) -> None:
         super().__post_init__()

@@ -9,17 +9,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--num_envs", type=int, default=1)
 parser.add_argument("--steps", type=int, default=20, help="Steps to run; 0 runs until Isaac Sim is closed.")
 parser.add_argument("--seed", type=int, default=42)
-parser.add_argument(
-    "--show_depth",
-    action="store_true",
-    help="Show a live normalized depth image in an Isaac Sim window.",
-)
-parser.add_argument(
-    "--camera_id",
-    type=int,
-    default=0,
-    help="Environment/camera index displayed by --show_depth.",
-)
+parser.add_argument("--show_depth", action="store_true", help="Show a live normalized depth image in an Isaac Sim window.",)
+parser.add_argument("--camera_id", type=int, default=0, help="Environment/camera index displayed by --show_depth.",)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 if args_cli.show_depth and args_cli.headless:
@@ -100,6 +91,7 @@ def main() -> None:
     while simulation_app.is_running() and (args_cli.steps <= 0 or step < args_cli.steps):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=unwrapped.device)
+            # actions = 10 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
             env.step(actions)
             estimated = mdp.depth_soccer_position_in_robot_frame(
                 unwrapped,

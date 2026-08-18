@@ -3,8 +3,9 @@
 The detector deliberately does not read the soccer rigid object's state.  It
 unprojects the torso camera depth image, removes the ground and points close to
 the known robot kinematics, and estimates the centre of the remaining sphere.
-Simulator ground truth remains available to rewards and to the asymmetric
-critic, but never enters the actor observations defined in ``depth_env_cfg``.
+The depth environment also routes ball-dependent rewards through this cached
+estimate.  Simulator ground truth remains available only to the asymmetric
+critic and termination checks, and never enters the deployable actor inputs.
 """
 
 from __future__ import annotations
@@ -25,7 +26,6 @@ from isaaclab.utils.math import (
     unproject_depth,
 )
 
-from .juggle_state import _filtered_contact_force
 from .observations import _foot_face_kinematics
 
 if TYPE_CHECKING:
@@ -298,55 +298,17 @@ def depth_feet_face_to_ball_b(
 
 
 def next_kick_foot_command_obs(env: ManagerBasedRLEnv) -> torch.Tensor:
-    """Expected foot command derived from depth and foot contact sensors only."""
-    state = getattr(env, "_bolt_depth_next_foot_state", None)
-    if state is None:
-        state = SimpleNamespace(
-            updated_step=-1,
-            next_foot=torch.ones(env.num_envs, dtype=torch.long, device=env.device),
-            initialized=torch.zeros(env.num_envs, dtype=torch.bool, device=env.device),
-            previous_left_contact=torch.zeros(
-                env.num_envs, dtype=torch.bool, device=env.device
-            ),
-            previous_right_contact=torch.zeros(
-                env.num_envs, dtype=torch.bool, device=env.device
-            ),
-        )
-        env._bolt_depth_next_foot_state = state
+    """Expected foot command from the shared perception-only reward state."""
+    # Runtime import avoids a module cycle: the depth state itself uses the
+    # detector implemented above.
+    from .depth_juggle_state import get_depth_juggle_state
 
-    if state.updated_step != int(env.common_step_counter):
-        state.updated_step = int(env.common_step_counter)
-        reset = env.episode_length_buf == 0
-        state.initialized &= ~reset
-        state.previous_left_contact &= ~reset
-        state.previous_right_contact &= ~reset
-
-        ball_pos_b, _, ball_valid = _depth_ball_state_b(env)
-        perceived_first_foot = torch.where(
-            ball_pos_b[:, 1] >= 0.0,
-            torch.full_like(state.next_foot, 2),
-            torch.ones_like(state.next_foot),
-        )
-        initialize = ball_valid.squeeze(-1) & ~state.initialized
-        state.next_foot = torch.where(initialize, perceived_first_foot, state.next_foot)
-        state.initialized |= initialize
-
-        left_contact = _filtered_contact_force(env, "left_foot_ball_contact") > 3.0
-        right_contact = _filtered_contact_force(env, "right_foot_ball_contact") > 3.0
-        left_onset = left_contact & ~state.previous_left_contact
-        right_onset = right_contact & ~state.previous_right_contact
-        state.next_foot = torch.where(
-            left_onset & ~right_onset,
-            torch.full_like(state.next_foot, 2),
-            torch.where(
-                right_onset & ~left_onset,
-                torch.ones_like(state.next_foot),
-                state.next_foot,
-            ),
-        )
-        state.previous_left_contact = left_contact
-        state.previous_right_contact = right_contact
-
-    return torch.stack(
-        [(state.next_foot == 1).float(), (state.next_foot == 2).float()], dim=-1
+    state = get_depth_juggle_state(env)
+    command = torch.stack(
+        [
+            (state.next_kick_foot == 1).float(),
+            (state.next_kick_foot == 2).float(),
+        ],
+        dim=-1,
     )
+    return command * state.perception_valid.unsqueeze(-1)

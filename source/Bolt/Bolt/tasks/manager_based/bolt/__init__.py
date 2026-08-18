@@ -39,6 +39,8 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.depth_env_cfg:BoltDepthEnvCfg",
-        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
+        # The depth task must use policy observations for the actor.  The
+        # teacher configuration intentionally remains checkpoint-compatible.
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_depth_cfg.yaml",
     },
 )

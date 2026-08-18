@@ -11,6 +11,7 @@ from isaaclab.assets import Articulation, RigidObject
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.math import quat_apply, quat_from_euler_xyz, yaw_quat
 
+from .depth_juggle_state import reset_depth_juggle_state
 from .juggle_state import reset_juggle_state
 
 if TYPE_CHECKING:
@@ -86,6 +87,10 @@ def reset_soccer_drop(
 
     first_foot = torch.where(lateral_distance >= 0.0, 2, 1).long()
     reset_juggle_state(env, env_ids, first_foot=first_foot)
+    if bool(getattr(env.cfg, "depth_reward_inputs", False)):
+        # Do not pass ``first_foot``: the depth task must infer it from the
+        # rerendered post-reset image rather than the sampled ball state above.
+        reset_depth_juggle_state(env, env_ids)
 
 
 def reset_joints_around_nominal(
