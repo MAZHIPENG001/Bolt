@@ -83,6 +83,48 @@ tensorboard \
 
 训练时录制视频会额外消耗：**GPU+显存+渲染时间**,因此大规模训练时建议关闭**--video**。
 
+## 1.5 深度相机策略
+
+`Bolt-Soccer-Depth-v0` 在 `torso_link` 上挂载 96×72 的批量深度相机。Actor 的球位置、
+球速度和脚到球向量均由深度点云估计，不读取足球刚体真值；Critic、奖励和终止条件仍可在训练时
+使用仿真真值。深度渲染开销较大，该环境默认使用 32 个并行环境，建议先从较小规模开始：
+
+```bash
+python scripts/skrl/train.py \
+    --task Bolt-Soccer-Depth-v0 \
+    --num_envs 32 \
+    --headless
+```
+
+训练和回放脚本会为该任务自动启用相机。开始训练前，可用校准脚本比较深度估计与仿真真值；
+真值只在此诊断脚本中用于计算误差，不进入 Actor：
+
+```bash
+python scripts/tools/check_depth_ball.py \
+    --num_envs 1 \
+    --steps 20 \
+    --headless
+```
+
+若要在 Isaac Sim 内实时查看深度图，不能使用 `--headless`。下面的命令会打开
+`Bolt Depth Camera` 窗口并持续运行，关闭仿真器即可结束：
+
+```bash
+python scripts/tools/check_depth_ball.py \
+    --num_envs 1 \
+    --camera_id 0 \
+    --show_depth \
+    --steps 0
+```
+
+预览图中近处为亮色、远处为暗色、无效或超过 4 m 的像素为黑色。也可以在 Isaac Sim 中打开
+`Tools → Robotics → Camera Inspector`，选择 `DepthCamera` 后创建 Viewport；该 Viewport 用于检查
+相机姿态和视场，显示的不是深度数值图。
+
+当前检测器使用已知足球半径、深度表面法向和三维 Hough 投票估计球心，并通过关节正向运动学
+剔除机器人自身点云。若实际场景还包含尺寸相近的球形物体，应进一步用仿真真值生成标签，训练
+深度图球检测网络，再用网络输出替换该几何检测器。
+
 
 # 2. 模型回放与录制
 
@@ -370,6 +412,9 @@ Policy 可获得的信息主要包括：
 左右脚姿态
 左右脚与足球之间的位置关系
 ```
+
+在 `Bolt-Soccer-Teacher-v0` 中，上述足球信息来自仿真真值；在
+`Bolt-Soccer-Depth-v0` 中，Actor 的对应信息来自深度图，输入维度和排列保持不变。
 
 并且 Policy Observation 中加入了一定的噪声,目的是提高策略对传感器误差和现实环境扰动的鲁棒性。
 
