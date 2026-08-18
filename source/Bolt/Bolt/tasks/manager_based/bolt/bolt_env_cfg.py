@@ -468,6 +468,11 @@ class RewardsCfg:
         weight=mdp.PHASE_1A_WEIGHTS["juggle_streak"],
         params={"max_count": 5},
     )
+    # One-shot milestone for a real launch -> release -> apex -> descent arc.
+    flight_cycle = RewTerm(
+        func=mdp.flight_cycle_reward,
+        weight=mdp.PHASE_1A_WEIGHTS["flight_cycle"],
+    )
     # Shape the current kick toward the opposite foot instead of rewarding
     # only its instantaneous upward velocity.
     kick_landing_target = RewTerm(
@@ -543,6 +548,10 @@ class RewardsCfg:
         func=mdp.same_foot_kick_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["same_foot_kick_penalty"],
     )
+    invalid_contact_penalty = RewTerm(
+        func=mdp.invalid_contact_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["invalid_contact_penalty"],
+    )
     wrong_foot_proximity_penalty = RewTerm(
         func=mdp.wrong_foot_proximity_penalty,
         weight=mdp.PHASE_1A_WEIGHTS["wrong_foot_proximity_penalty"],
@@ -588,10 +597,30 @@ class RewardsCfg:
         weight=mdp.PHASE_1A_WEIGHTS["torso_upright"],
         params={"torso_body_name": "torso_link", "base_fraction": 0.9},
     )
-    torso_backward_lean_penalty = RewTerm(
-        func=mdp.torso_backward_lean_penalty,
-        weight=mdp.PHASE_1A_WEIGHTS["torso_backward_lean_penalty"],
-        params={"torso_body_name": "torso_link", "juggle_scale": 1.0, "standing_scale": 1.0},
+    torso_lean_penalty = RewTerm(
+        func=mdp.torso_lean_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["torso_lean_penalty"],
+        params={
+            "torso_body_name": "torso_link",
+            "forward_tolerance": 0.10,
+            "backward_tolerance": 0.15,
+            "juggle_scale": 1.0,
+            "standing_scale": 1.0,
+        },
+    )
+    base_height_penalty = RewTerm(
+        func=mdp.base_height_below_target_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["base_height_penalty"],
+        params={"target_height": 0.90, "margin": 0.25},
+    )
+    waist_pitch_penalty = RewTerm(
+        func=mdp.upper_body_joint_penalty,
+        weight=mdp.PHASE_1A_WEIGHTS["waist_pitch_penalty"],
+        params={
+            "joint_names": ("waist_pitch_joint",),
+            "std": 0.12,
+            "juggle_discount": 1.0,
+        },
     )
     juggling_yaw_penalty = RewTerm(
         func=mdp.juggling_yaw_velocity_penalty,
@@ -717,6 +746,11 @@ class TerminationsCfg:
         func=mdp.low_ball_trap_terminate,
         params={"min_steps": 40},
     )
+    incomplete_cycle = DoneTerm(
+        func=mdp.incomplete_juggle_cycle_terminate,
+        # Counters advance at 200 Hz: 1.5 s in phase 1b and 2.0 s in 1a.
+        params={"max_steps": 300, "warmup_max_steps": 400},
+    )
 
 
 @configclass
@@ -731,7 +765,7 @@ class CurriculumCfg:
             "episode_len_ema_threshold": 300.0,
             "min_global_steps": 240_000,
             "ema_alpha": 0.005,
-            "initial_phase": 1,
+            "initial_phase": 0,
         },
     )
 

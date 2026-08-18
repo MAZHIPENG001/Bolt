@@ -80,7 +80,16 @@ def foot_face_ball_distance_directional(
     unreachable = ((ball_vz > unreachable_vz) & (ball_height > unreachable_height)) | (
         ball_height > kick_zone_max_height
     )
-    return reward * (state.hold_steps < 10).float() * (~unreachable).float() * state.ball_in_juggle_range
+    contact_window = ((state.kick_count == 0) | state.flight_ready) & (
+        ball_vz <= unreachable_vz
+    )
+    return (
+        reward
+        * contact_window.float()
+        * (state.hold_steps < 10).float()
+        * (~unreachable).float()
+        * state.ball_in_juggle_range
+    )
 
 
 def robot_facing_ball_reward(
@@ -120,11 +129,13 @@ def next_kick_foot_height_reward(
     descending_and_reachable = (
         (soccer.data.root_lin_vel_w[:, 2] < activate_vz) & (ball_height < max_track_height)
     )
+    contact_window = (state.kick_count == 0) | state.flight_ready
     target = (ball_height - ball_radius).clamp(min=0.07, max=target_height)
     foot_height = torch.where(state.next_kick_foot == 1, left_height, right_height)
     return (
         torch.exp(-torch.square(foot_height - target) / (2.0 * std**2))
         * descending_and_reachable.float()
+        * contact_window.float()
         * state.ball_in_juggle_range
     )
 
@@ -132,7 +143,7 @@ def next_kick_foot_height_reward(
 def kick_reward(env: ManagerBasedRLEnv, same_foot_scale: float = 0.0) -> torch.Tensor:
     state = get_juggle_state(env)
     scale = torch.where(
-        state.alternated_this_step,
+        state.expected_kick_this_step,
         torch.ones(env.num_envs, device=env.device),
         torch.full((env.num_envs,), same_foot_scale, device=env.device),
     )
@@ -159,8 +170,7 @@ def kick_quality_reward(
     ramp = torch.clamp((ball_vz - min_vz) / (target_vz - min_vz + 1.0e-6), 0.0, 1.0)
     reward = (1.0 - linear_blend) * gaussian + linear_blend * ramp
     reward = torch.where(ball_vz > min_vz, reward, torch.zeros_like(reward))
-    same_foot = state.kick_this_step & ~state.alternated_this_step
-    foot_gate = state.alternated_this_step.float() + 0.2 * same_foot.float()
+    foot_gate = state.expected_kick_this_step.float() + 0.2 * state.wrong_foot_this_step.float()
     return reward * foot_gate * state.ball_in_juggle_range
 
 
@@ -174,6 +184,12 @@ def juggle_streak_reward(env: ManagerBasedRLEnv, max_count: int = 5) -> torch.Te
         * state.alternated_this_step.float()
         * state.ball_in_juggle_range
     )
+
+
+def flight_cycle_reward(env: ManagerBasedRLEnv) -> torch.Tensor:
+    """Pay once when a kick has produced a released up-and-down ball arc."""
+    state = get_juggle_state(env)
+    return state.flight_completed_this_step.float() * state.ball_in_juggle_range
 
 
 def _predicted_next_foot_intercept(
@@ -218,7 +234,7 @@ def kick_landing_target_reward(
     )
     reward = torch.exp(-torch.square(miss_distance) / (2.0 * std**2))
     active = (
-        state.alternated_this_step
+        state.expected_kick_this_step
         & (soccer.data.root_lin_vel_w[:, 2] > min_upward_velocity)
         & valid
     )
@@ -301,8 +317,7 @@ def ball_upward_velocity_reward(
     reward = torch.exp(-torch.square(velocity - target_vel) / (2.0 * std**2))
     reward = torch.where(velocity > min_vel, reward, torch.zeros_like(reward))
     over_kick = torch.clamp((velocity - max_vel) / std, min=0.0, max=1.0)
-    same_foot = state.kick_this_step & ~state.alternated_this_step
-    foot_gate = state.alternated_this_step.float() + 0.2 * same_foot.float()
+    foot_gate = state.expected_kick_this_step.float() + 0.2 * state.wrong_foot_this_step.float()
     return (reward - over_kick) * foot_gate * state.ball_in_juggle_range
 
 
@@ -342,8 +357,12 @@ def robot_upright_reward(
 
 
 def same_foot_kick_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
-    state = get_juggle_state(env)
-    return (state.kick_this_step & ~state.alternated_this_step & (state.prev_kick_foot != 0)).float()
+    return get_juggle_state(env).wrong_foot_this_step.float()
+
+
+def invalid_contact_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
+    """Penalize touches that neither launch the ball nor follow a full flight."""
+    return get_juggle_state(env).invalid_contact_this_step.float()
 
 
 def wrong_foot_proximity_penalty(
@@ -452,20 +471,46 @@ def torso_upright_reward(
     return upright * (base_fraction + (1.0 - base_fraction) * (1.0 - gate))
 
 
-def torso_backward_lean_penalty(
+def torso_lean_penalty(
     env: ManagerBasedRLEnv,
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     torso_body_name: str = "torso_link",
+    forward_tolerance: float = 0.10,
+    backward_tolerance: float = 0.15,
     juggle_scale: float = 1.0,
     standing_scale: float = 1.0,
 ) -> torch.Tensor:
+    """Penalize forward and backward torso lean outside a small dead band."""
     robot: Articulation = env.scene[robot_cfg.name]
     torso_id = _body_id(robot, torso_body_name)
     forward = torch.tensor([1.0, 0.0, 0.0], device=env.device).expand(env.num_envs, -1)
     forward_w = quat_apply(robot.data.body_quat_w[:, torso_id], forward)
-    penalty = torch.square(torch.clamp(forward_w[:, 2], min=0.0))
+    forward_lean = torch.clamp(
+        (-forward_w[:, 2] - forward_tolerance) / max(1.0 - forward_tolerance, 1.0e-6),
+        0.0,
+        1.0,
+    )
+    backward_lean = torch.clamp(
+        (forward_w[:, 2] - backward_tolerance) / max(1.0 - backward_tolerance, 1.0e-6),
+        0.0,
+        1.0,
+    )
+    penalty = torch.maximum(torch.square(forward_lean), torch.square(backward_lean))
     gate = _gate(env)
     return penalty * (standing_scale * (1.0 - gate) + juggle_scale * gate)
+
+
+def base_height_below_target_penalty(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    target_height: float = 0.90,
+    margin: float = 0.25,
+) -> torch.Tensor:
+    """Discourage the persistent crouch that can place the torso over the ball."""
+    robot: Articulation = env.scene[robot_cfg.name]
+    height = robot.data.root_pos_w[:, 2] - env.scene.env_origins[:, 2]
+    deficit = torch.clamp((target_height - height) / max(margin, 1.0e-6), 0.0, 1.0)
+    return torch.square(deficit)
 
 
 def juggling_yaw_velocity_penalty(

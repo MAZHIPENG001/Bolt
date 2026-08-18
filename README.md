@@ -487,6 +487,7 @@ kick
 alternating_kick
 kick_quality
 juggle_streak
+flight_cycle
 ball_height
 ball_approach_vel
 ball_upward_vel
@@ -497,6 +498,7 @@ ball_upward_vel
 * 脚靠近足球
 * 成功触球
 * 将足球向上踢
+* 让球真正离脚并完成“上升 -> 最高点 -> 下降”的飞行周期
 * 保持足球在合理高度
 * 连续颠球
 
@@ -527,11 +529,13 @@ double_contact_penalty
 robot_upright
 stable_standing
 torso_upright
-torso_backward_lean_penalty
+torso_lean_penalty
+base_height_penalty
+waist_pitch_penalty
 undesired_contacts
 ```
 
-鼓励机器人：**保持站立+减少身体大幅倾斜+减少不必要碰撞**
+鼓励机器人：**保持站立+避免长期前倾/后仰和深蹲+减少不必要碰撞**
 
 ### 7.6.4 动作平滑
 
@@ -560,7 +564,7 @@ joint velocity penalty
 
 Episode 在以下情况下可能结束：
 
-**达到最大时间 || 机器人高度过低 || 机器人姿态倾斜过大 || 上半身发生非法接触 || 足球落地 || 足球距离机器人太远 || 足球高度过高 || 足球跑到机器人后方 || 连续只使用同一只脚 || 双脚长时间夹住足球**
+**达到最大时间 || 机器人高度过低 || 机器人姿态倾斜过大 || 上半身发生非法接触 || 足球落地 || 足球距离机器人太远 || 足球高度过高 || 足球跑到机器人后方 || 连续只使用同一只脚 || 双脚长时间夹住足球 || 长时间未形成下一次有效踢球周期**
 
 默认：**episode_length_s = 15.0**,即一个 Episode 最长：**15 秒**
 

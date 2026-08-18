@@ -22,6 +22,13 @@ if TYPE_CHECKING:
 LEFT_FOOT_BODY = "left_ankle_roll_link"
 RIGHT_FOOT_BODY = "right_ankle_roll_link"
 
+# A contact is a scored kick only when it starts a genuine ball flight.  These
+# thresholds deliberately sit above the low foot-trap band (0.14--0.30 m).
+MIN_KICK_UPWARD_VELOCITY = 0.8
+MIN_KICK_HEIGHT = 0.18
+MIN_CYCLE_APEX_HEIGHT = 0.42
+MIN_RELEASE_DISTANCE = 0.24
+
 
 def _body_id(asset: Articulation, name: str) -> int:
     cache_name = f"_bolt_body_id_{name}"
@@ -65,15 +72,24 @@ def _new_state(env: ManagerBasedRLEnv) -> SimpleNamespace:
         alternating_count=zeros_long(),
         same_foot_streak=zeros_long(),
         kick_cooldown=zeros_long(),
+        cycle_wait_steps=zeros_long(),
         left_contact_release_steps=zeros_long(),
         right_contact_release_steps=zeros_long(),
         hold_steps=zeros_long(),
         low_ball_steps=zeros_long(),
         both_feet_clamp_steps=zeros_long(),
+        flight_peak_height=torch.zeros(n, device=device),
         left_contact_armed=torch.ones(n, dtype=torch.bool, device=device),
         right_contact_armed=torch.ones(n, dtype=torch.bool, device=device),
+        flight_active=zeros_bool(),
+        flight_released=zeros_bool(),
+        flight_ready=zeros_bool(),
         kick_this_step=zeros_bool(),
+        expected_kick_this_step=zeros_bool(),
+        wrong_foot_this_step=zeros_bool(),
         alternated_this_step=zeros_bool(),
+        invalid_contact_this_step=zeros_bool(),
+        flight_completed_this_step=zeros_bool(),
         double_contact_this_step=zeros_bool(),
         ball_just_grounded=zeros_bool(),
         ball_in_juggle_range=torch.ones(n, device=device),
@@ -112,6 +128,7 @@ def reset_juggle_state(
         "alternating_count",
         "same_foot_streak",
         "kick_cooldown",
+        "cycle_wait_steps",
         "left_contact_release_steps",
         "right_contact_release_steps",
         "hold_steps",
@@ -121,7 +138,11 @@ def reset_juggle_state(
         getattr(state, name)[env_ids] = 0
     for name in (
         "kick_this_step",
+        "expected_kick_this_step",
+        "wrong_foot_this_step",
         "alternated_this_step",
+        "invalid_contact_this_step",
+        "flight_completed_this_step",
         "double_contact_this_step",
         "ball_just_grounded",
     ):
@@ -129,9 +150,14 @@ def reset_juggle_state(
     state.next_kick_foot[env_ids] = first_foot
     state.left_contact_armed[env_ids] = True
     state.right_contact_armed[env_ids] = True
-    # As in BeyondAmp_Mjlab, preset the previous foot to the opposite side so
-    # a correct first contact receives the alternating-kick reward.
-    state.last_kick_foot[env_ids] = 3 - first_foot
+    state.flight_active[env_ids] = False
+    state.flight_released[env_ids] = False
+    state.flight_ready[env_ids] = False
+    state.flight_peak_height[env_ids] = 0.0
+    # The first drop is an acquisition kick, not an alternating cycle.  Keeping
+    # this at zero prevents one initial contact from receiving the much larger
+    # complete-cycle reward.
+    state.last_kick_foot[env_ids] = 0
     state.ball_in_juggle_range[env_ids] = 1.0
     state.ball_started_near[env_ids] = True
     if state.prev_prev_action is not None:
@@ -152,10 +178,15 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
     right_dist = torch.linalg.vector_norm(right_pos - ball_pos, dim=-1)
     min_dist = torch.minimum(left_dist, right_dist)
     ball_speed = torch.linalg.vector_norm(soccer.data.root_lin_vel_w, dim=-1)
+    ball_vz = soccer.data.root_lin_vel_w[:, 2]
     ball_height = ball_pos[:, 2] - env.scene.env_origins[:, 2]
 
     state.kick_this_step.zero_()
+    state.expected_kick_this_step.zero_()
+    state.wrong_foot_this_step.zero_()
     state.alternated_this_step.zero_()
+    state.invalid_contact_this_step.zero_()
+    state.flight_completed_this_step.zero_()
     state.double_contact_this_step.zero_()
     state.ball_just_grounded.zero_()
 
@@ -183,42 +214,95 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
     state.left_contact_armed |= state.left_contact_release_steps >= physics_steps
     state.right_contact_armed |= state.right_contact_release_steps >= physics_steps
 
-    left_kick = left_contact & state.left_contact_armed
-    right_kick = right_contact & state.right_contact_armed
-    state.left_contact_armed &= ~left_kick
-    state.right_contact_armed &= ~right_kick
+    left_contact_onset = left_contact & state.left_contact_armed
+    right_contact_onset = right_contact & state.right_contact_armed
+    state.left_contact_armed &= ~left_contact_onset
+    state.right_contact_armed &= ~right_contact_onset
 
-    any_kick = left_kick | right_kick
-    double_contact = left_kick & right_kick
-    single_kick = any_kick & ~double_contact
+    any_contact_onset = left_contact_onset | right_contact_onset
+    double_contact = left_contact_onset & right_contact_onset
+    single_contact = any_contact_onset & ~double_contact
+    foot_contact = left_contact | right_contact
 
-    current_foot = left_kick.long() + 2 * right_kick.long()
+    # Track a real airborne arc between scored contacts.  A new kick cannot be
+    # scored until the previous launch has separated from both feet, cleared
+    # the low trap band, and reached its descending phase.
+    active_flight = state.flight_active
+    state.flight_peak_height = torch.where(
+        active_flight,
+        torch.maximum(state.flight_peak_height, ball_height),
+        state.flight_peak_height,
+    )
+    released = active_flight & ~foot_contact & (min_dist > MIN_RELEASE_DISTANCE)
+    state.flight_released |= released
+    completed_flight = (
+        active_flight
+        & state.flight_released
+        & (state.flight_peak_height >= MIN_CYCLE_APEX_HEIGHT)
+        & (ball_vz <= 0.0)
+    )
+    newly_completed = completed_flight & ~state.flight_ready
+    state.flight_completed_this_step |= newly_completed
+    state.flight_ready |= completed_flight
+
+    current_foot = left_contact_onset.long() + 2 * right_contact_onset.long()
     closest_foot = torch.where(left_dist < right_dist, 1, 2)
     current_foot = torch.where(double_contact, closest_foot, current_foot)
+    launch_contact = (
+        single_contact
+        & (ball_vz >= MIN_KICK_UPWARD_VELOCITY)
+        & (ball_height >= MIN_KICK_HEIGHT)
+    )
+    had_previous_kick = state.kick_count > 0
+    cycle_available = ~had_previous_kick | state.flight_ready
+    valid_kick = launch_contact & cycle_available
+    expected_kick = valid_kick & (current_foot == state.next_kick_foot)
+    wrong_foot = valid_kick & ~expected_kick
     previous_foot = state.last_kick_foot.clone()
-    alternated = single_kick & (current_foot != previous_foot)
-    same_foot = single_kick & ~alternated & (previous_foot != 0)
+    # Only contacts following a completed flight count as alternating cycles.
+    # The initial acquisition kick still receives the base/quality rewards.
+    alternated = expected_kick & had_previous_kick
 
-    state.kick_this_step |= single_kick
+    state.kick_this_step |= valid_kick
+    state.expected_kick_this_step |= expected_kick
+    state.wrong_foot_this_step |= wrong_foot
     state.alternated_this_step |= alternated
+    state.invalid_contact_this_step |= any_contact_onset & ~valid_kick
     state.double_contact_this_step |= double_contact
-    state.prev_kick_foot = torch.where(single_kick, previous_foot, state.prev_kick_foot)
-    state.last_kick_foot = torch.where(single_kick, current_foot, previous_foot)
-    state.next_kick_foot = torch.where(single_kick, 3 - current_foot, state.next_kick_foot)
-    state.kick_count += single_kick.long()
-    state.left_kick_count += (left_kick & ~double_contact).long()
-    state.right_kick_count += (right_kick & ~double_contact).long()
+    state.prev_kick_foot = torch.where(valid_kick, previous_foot, state.prev_kick_foot)
+    state.last_kick_foot = torch.where(valid_kick, current_foot, previous_foot)
+    state.next_kick_foot = torch.where(valid_kick, 3 - current_foot, state.next_kick_foot)
+    state.kick_count += valid_kick.long()
+    state.left_kick_count += (valid_kick & left_contact_onset).long()
+    state.right_kick_count += (valid_kick & right_contact_onset).long()
     state.alternated_kick_count += alternated.long()
-    state.same_foot_kick_count += same_foot.long()
+    state.same_foot_kick_count += wrong_foot.long()
     state.alternating_count = torch.where(
         alternated,
         state.alternating_count + 1,
-        torch.where(same_foot, torch.zeros_like(state.alternating_count), state.alternating_count),
+        torch.where(
+            wrong_foot, torch.zeros_like(state.alternating_count), state.alternating_count
+        ),
     )
     state.same_foot_streak = torch.where(
-        same_foot,
+        wrong_foot,
         state.same_foot_streak + 1,
         torch.where(alternated, torch.zeros_like(state.same_foot_streak), state.same_foot_streak),
+    )
+
+    # Even an unscored early launch restarts the physical flight tracker.  It
+    # must complete a new arc before a later contact can earn task reward.
+    state.flight_active = torch.where(
+        launch_contact, torch.ones_like(state.flight_active), state.flight_active
+    )
+    state.flight_released = torch.where(
+        launch_contact, torch.zeros_like(state.flight_released), state.flight_released
+    )
+    state.flight_ready = torch.where(
+        launch_contact, torch.zeros_like(state.flight_ready), state.flight_ready
+    )
+    state.flight_peak_height = torch.where(
+        launch_contact, ball_height, state.flight_peak_height
     )
 
     # The reference task updates these counters at physics rate. This port is
@@ -226,7 +310,7 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
     # preserve the same durations in seconds.
     cooldown_steps = 25
     state.kick_cooldown = torch.where(
-        any_kick,
+        any_contact_onset,
         torch.full_like(state.kick_cooldown, cooldown_steps),
         torch.clamp(state.kick_cooldown - physics_steps, min=0),
     )
@@ -234,7 +318,6 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
         min_dist > 0.30, torch.zeros_like(state.kick_cooldown), state.kick_cooldown
     )
 
-    foot_contact = left_contact | right_contact
     holding = (foot_contact & (ball_speed < 0.35)) | (
         (min_dist < 0.20) & (ball_speed < 0.25)
     )
@@ -255,6 +338,10 @@ def _update_state(env: ManagerBasedRLEnv, state: SimpleNamespace) -> None:
         low_ball,
         state.low_ball_steps + physics_steps,
         torch.zeros_like(state.low_ball_steps),
+    )
+    state.cycle_wait_steps += physics_steps
+    state.cycle_wait_steps = torch.where(
+        valid_kick, torch.zeros_like(state.cycle_wait_steps), state.cycle_wait_steps
     )
     both_close = (
         (left_dist < 0.22)

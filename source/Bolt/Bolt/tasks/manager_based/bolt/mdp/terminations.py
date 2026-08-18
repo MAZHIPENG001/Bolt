@@ -109,6 +109,22 @@ def low_ball_trap_terminate(env: ManagerBasedRLEnv, min_steps: int = 40) -> torc
     return (state.low_ball_steps >= min_steps) & state.ball_started_near
 
 
+def incomplete_juggle_cycle_terminate(
+    env: ManagerBasedRLEnv,
+    max_steps: int = 300,
+    warmup_max_steps: int = 400,
+) -> torch.Tensor:
+    """End an episode when no valid launch occurs for too long.
+
+    Phase 1a gets a slightly longer acquisition window, but is intentionally
+    not exempt: otherwise standing still for the full episode is its easiest
+    local optimum.  The timeout applies before the first kick and between kicks.
+    """
+    state = get_juggle_state(env)
+    threshold = max_steps if _phase_enabled(env) else warmup_max_steps
+    return (state.cycle_wait_steps >= threshold) & state.ball_started_near
+
+
 def ball_lost(
     env: ManagerBasedRLEnv,
     minimum_height: float,
