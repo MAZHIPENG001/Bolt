@@ -156,7 +156,7 @@ python scripts/tools/check_depth_ball.py \
 python scripts/skrl/play.py \
     --task Bolt-Soccer-Teacher-v0 \
     --num_envs 1 \
-    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-18_14-15-06_ppo_torch_origin/checkpoints/agent_24000.pt \
+    --checkpoint logs/skrl/inreal_v2_soccer/2026-08-18_14-15-06_ppo_torch_origin/checkpoints/agent_72000.pt \
     --video \
     --video_length 800 \
     --headless
