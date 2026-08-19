@@ -16,8 +16,8 @@ python scripts/skrl/train.py \
 ```
 python scripts/skrl/train.py --help
 ```
-## 1.2 单卡训练/继续训练
-
+## 1.2 环境:Bolt-Soccer-Teacher-v0
+### 1.2.1 单卡训练/继续训练
 ```bash
 python scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0 \
@@ -26,7 +26,7 @@ python scripts/skrl/train.py \
     --headless \
     --checkpoint logs/skrl/inreal_v2_soccer/2026-07-13_10-59-36_ppo_torch_origin/checkpoints/agent_96000.pt
 ```
-## 1.3 多卡训练
+### 1.2.2 多卡训练
 ```bash
 torchrun \
     --standalone \
@@ -68,10 +68,27 @@ torchrun \
     --distributed \
     --checkpoint 
 ```
-启动日志中应分别出现 `local_rank=0/1/2/3` 和 `device=cuda:0/1/2/3`。
-不要设置 `CUDA_VISIBLE_DEVICES`：Omniverse 与 CUDA 对屏蔽后设备的枚举可能不一致，
 日志会出现 `carb.cudainterop.plugin` 警告，严重时会导致非法显存访问。当前服务器要使用
 物理卡 0、1、2、3，只需设置 `--nproc_per_node=4`，`LOCAL_RANK` 会自动选择这四张卡。
+## 1.3 环境Bolt-Soccer-Depth-v0
+```bash
+export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+
+NCCL_DEBUG=INFO \
+TORCH_DISTRIBUTED_DEBUG=DETAIL \
+NCCL_PROTO=LL \
+NCCL_ALGO=Ring \
+torchrun \
+    --standalone \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-Depth-v0 \
+    --headless \
+    --num_envs 4096 \
+    --max_iterations 30000 \
+    --distributed \
+    --checkpoint 
+```
 
 ## 1.4 查看训练信息和曲线
 
