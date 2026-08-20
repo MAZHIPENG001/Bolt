@@ -84,7 +84,7 @@ torchrun \
     scripts/skrl/train.py \
     --task Bolt-Soccer-Depth-v0 \
     --headless \
-    --num_envs 4096 \
+    --num_envs 1024 \
     --max_iterations 30000 \
     --distributed \
     --checkpoint 
