@@ -16,8 +16,9 @@ python scripts/skrl/train.py \
 ```
 python scripts/skrl/train.py --help
 ```
-## 1.2 环境:Bolt-Soccer-Teacher-v0
-### 1.2.1 单卡训练/继续训练
+## 1.2 环境
+### 1.2.1 环境1:Bolt-Soccer-Teacher-v0
+#### 1.2.1.1 单卡训练/继续训练
 ```bash
 python scripts/skrl/train.py \
     --task Bolt-Soccer-Teacher-v0 \
@@ -26,32 +27,7 @@ python scripts/skrl/train.py \
     --headless \
     --checkpoint logs/skrl/inreal_v2_soccer/2026-07-13_10-59-36_ppo_torch_origin/checkpoints/agent_96000.pt
 ```
-### 1.2.2 多卡训练
-```bash
-torchrun \
-    --standalone \
-    --nnodes=1 \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --num_envs 7192 \
-    --distributed
-```
-```bash
-NCCL_PROTO=LL \
-NCCL_ALGO=Ring \
-torchrun \
-    --standalone \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-Teacher-v0 \
-    --headless \
-    --num_envs 4096 \
-    --max_iterations 10000 \
-    --distributed \
-    --checkpoint 
-```
+#### 1.2.1.2 多卡训练
 ```bash
 NCCL_DEBUG=INFO \
 TORCH_DISTRIBUTED_DEBUG=DETAIL \
@@ -70,7 +46,7 @@ torchrun \
 ```
 日志会出现 `carb.cudainterop.plugin` 警告，严重时会导致非法显存访问。当前服务器要使用
 物理卡 0、1、2、3，只需设置 `--nproc_per_node=4`，`LOCAL_RANK` 会自动选择这四张卡。
-## 1.3 环境:Bolt-Soccer-Depth-v0
+### 1.2.2 环境:Bolt-Soccer-Depth-v0
 ```bash
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
@@ -89,26 +65,8 @@ torchrun \
     --distributed \
     --checkpoint 
 ```
-## 1.4 环境:Bolt-Soccer-DepthImage-v0
+### 1.2.3 环境:Bolt-Soccer-DepthImage-v0
 ```bash
-export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-
-NCCL_DEBUG=INFO \
-TORCH_DISTRIBUTED_DEBUG=DETAIL \
-NCCL_PROTO=LL \
-NCCL_ALGO=Ring \
-torchrun \
-    --standalone \
-    --nproc_per_node=4 \
-    scripts/skrl/train.py \
-    --task Bolt-Soccer-DepthImage-v0 \
-    --headless \
-    --num_envs 1024 \
-    --max_iterations 50000 \
-    --distributed \
-    --checkpoint 
-```
-```
 export HYDRA_FULL_ERROR=1
 export TORCH_DISTRIBUTED_DEBUG=DETAIL
 export NCCL_DEBUG=INFO
@@ -125,7 +83,7 @@ torchrun \
     --num_envs 1024 \
     --distributed
 ```
-## 1.4 查看训练信息和曲线
+## 1.3 查看训练信息和曲线
 
 训练启动时，终端会打印任务、设备、并行环境数、观测/动作空间、PPO 批次大小、学习率、日志目录以及各模型的参数量。训练过程中会定期打印 reward、episode、loss、学习率和环境上报的全部标量。
 
@@ -151,7 +109,7 @@ tensorboard \
 
 训练时录制视频会额外消耗：**GPU+显存+渲染时间**,因此大规模训练时建议关闭**--video**。
 
-## 1.5 深度相机策略
+## 1.4 深度相机策略
 
 `Bolt-Soccer-Depth-v0` 在 `torso_link` 上挂载 96×72 的批量深度相机。Actor 的球位置、
 球速度和脚到球向量均由深度点云估计，不读取足球刚体真值。奖励和课程统计也使用同一份
