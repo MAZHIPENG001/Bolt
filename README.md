@@ -108,6 +108,23 @@ torchrun \
     --distributed \
     --checkpoint 
 ```
+```
+export HYDRA_FULL_ERROR=1
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+export NCCL_DEBUG=INFO
+export CUDA_LAUNCH_BLOCKING=1
+
+NCCL_PROTO=LL \
+NCCL_ALGO=Ring \
+torchrun \
+    --standalone \
+    --nproc_per_node=4 \
+    scripts/skrl/train.py \
+    --task Bolt-Soccer-DepthImage-v0 \
+    --headless \
+    --num_envs 1024 \
+    --distributed
+```
 ## 1.4 查看训练信息和曲线
 
 训练启动时，终端会打印任务、设备、并行环境数、观测/动作空间、PPO 批次大小、学习率、日志目录以及各模型的参数量。训练过程中会定期打印 reward、episode、loss、学习率和环境上报的全部标量。
