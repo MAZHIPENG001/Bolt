@@ -2,6 +2,7 @@
 
 
 DEPTH_TASK_NAME = "Bolt-Soccer-Depth-v0"
+DEPTH_IMAGE_TASK_NAME = "Bolt-Soccer-DepthImage-v0"
 
 
 def _network_inputs(model_cfg: dict) -> set[str]:
@@ -10,7 +11,7 @@ def _network_inputs(model_cfg: dict) -> set[str]:
 
 def validate_depth_policy_config(task_name: str | None, agent_cfg: dict) -> None:
     """Ensure the depth actor cannot be wired to privileged critic states."""
-    if not task_name or task_name.split(":")[-1] != DEPTH_TASK_NAME:
+    if not task_name or task_name.split(":")[-1] not in {DEPTH_TASK_NAME, DEPTH_IMAGE_TASK_NAME}:
         return
 
     models = agent_cfg.get("models", {})
@@ -18,14 +19,14 @@ def validate_depth_policy_config(task_name: str | None, agent_cfg: dict) -> None
     value_inputs = _network_inputs(models.get("value", {}))
     if not policy_inputs or policy_inputs != {"OBSERVATIONS"}:
         raise ValueError(
-            f"{DEPTH_TASK_NAME} actor must use only OBSERVATIONS; got {sorted(policy_inputs)}"
+            f"depth visual actor must use only OBSERVATIONS; got {sorted(policy_inputs)}"
         )
     if not value_inputs or value_inputs != {"STATES"}:
         raise ValueError(
-            f"{DEPTH_TASK_NAME} critic must use STATES; got {sorted(value_inputs)}"
+            f"depth visual critic must use STATES; got {sorted(value_inputs)}"
         )
     if not agent_cfg.get("agent", {}).get("observation_preprocessor"):
-        raise ValueError(f"{DEPTH_TASK_NAME} must configure an observation preprocessor")
+        raise ValueError("depth visual actor must configure an observation preprocessor")
 
 
 def validate_depth_environment_config(task_name: str | None, env_cfg) -> None:

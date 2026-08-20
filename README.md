@@ -135,6 +135,18 @@ python scripts/skrl/train.py \
 修复前使用 `STATES` 训练出的 Depth checkpoint 实际依赖 Critic 真值，不能作为深度模型继续训练
 或部署；请使用当前配置从头训练。启动训练和回放时会自动校验这一输入约束。
 
+`Bolt-Soccer-DepthImage-v0` 是独立的端到端视觉环境，不会改动上述环境。Actor 直接接收两帧
+归一化的 96×72 原始深度图，以及 IMU、关节状态、脚部正向运动学和动作历史；其中没有球检测、
+点云处理、球位置/速度估计或球接触推断。训练期的奖励和 Critic 仍可使用仿真真值，但这些输入
+不会进入 Actor，也不能带到真机。该环境使用独立 checkpoint，需从头训练：
+
+```bash
+python scripts/skrl/train.py \
+    --task Bolt-Soccer-DepthImage-v0 \
+    --num_envs 32 \
+    --headless
+```
+
 训练和回放脚本会为该任务自动启用相机。开始训练前，可用校准脚本比较深度估计与仿真真值；
 真值只在此诊断脚本中用于计算误差，不进入 Actor：
 

@@ -67,7 +67,10 @@ args_cli, hydra_args = parser.parse_known_args()
 if args_cli.log_interval < 0:
     parser.error("--log_interval must be greater than or equal to 0")
 # Enable rendering for both video recording and the depth-observation task.
-if args_cli.video or (args_cli.task and args_cli.task.split(":")[-1] == "Bolt-Soccer-Depth-v0"):
+if args_cli.video or (
+    args_cli.task
+    and args_cli.task.split(":")[-1] in {"Bolt-Soccer-Depth-v0", "Bolt-Soccer-DepthImage-v0"}
+):
     args_cli.enable_cameras = True
 
 

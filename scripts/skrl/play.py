@@ -54,7 +54,10 @@ AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
 # Enable rendering for both video recording and the depth-observation task.
-if args_cli.video or (args_cli.task and args_cli.task.split(":")[-1] == "Bolt-Soccer-Depth-v0"):
+if args_cli.video or (
+    args_cli.task
+    and args_cli.task.split(":")[-1] in {"Bolt-Soccer-Depth-v0", "Bolt-Soccer-DepthImage-v0"}
+):
     args_cli.enable_cameras = True
 
 # clear out sys.argv for Hydra
