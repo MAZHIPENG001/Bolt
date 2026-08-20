@@ -81,6 +81,7 @@ torchrun \
     --task Bolt-Soccer-DepthImage-v0 \
     --headless \
     --num_envs 1024 \
+    --max_iterations 50000 \
     --distributed
 ```
 ## 1.3 查看训练信息和曲线
