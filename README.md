@@ -178,6 +178,15 @@ python scripts/skrl/play.py \
     --video_length 800 \
     --headless
 ```
+```bash
+python scripts/skrl/play.py \
+    --task Bolt-Soccer-Depth-v0 \
+    --num_envs 1 \
+    --checkpoint logs/skrl/inreal_v2_soccer_depth/2026-08-19_16-03-04_ppo_torch_depth_only/checkpoints/agent_72000.pt \
+    --video \
+    --video_length 800 \
+    --headless
+```
 模型权重上传与下载:  **logs/README.md**
 
 # 3. 项目简介
