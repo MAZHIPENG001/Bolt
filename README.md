@@ -85,7 +85,7 @@ torchrun \
     --task Bolt-Soccer-Depth-v0 \
     --headless \
     --num_envs 1024 \
-    --max_iterations 30000 \
+    --max_iterations 50000 \
     --distributed \
     --checkpoint 
 ```
@@ -104,7 +104,7 @@ torchrun \
     --task Bolt-Soccer-DepthImage-v0 \
     --headless \
     --num_envs 1024 \
-    --max_iterations 30000 \
+    --max_iterations 50000 \
     --distributed \
     --checkpoint 
 ```
