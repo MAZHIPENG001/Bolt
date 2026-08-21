@@ -82,7 +82,8 @@ torchrun \
     --headless \
     --num_envs 1024 \
     --max_iterations 50000 \
-    --distributed
+    --distributed \
+    --checkpoint logs/skrl/inreal_v2_soccer_depth_image/2026-08-20_16-16-40_ppo_torch_raw_depth/checkpoints/agent_72000.pt
 ```
 ## 1.3 查看训练信息和曲线
 
@@ -189,6 +190,15 @@ python scripts/skrl/play.py \
     --task Bolt-Soccer-Depth-v0 \
     --num_envs 1 \
     --checkpoint logs/skrl/inreal_v2_soccer_depth/2026-08-20_10-35-44_ppo_torch_depth_only/checkpoints/agent_24000.pt \
+    --video \
+    --video_length 800 \
+    --headless
+```
+```bash
+python scripts/skrl/play.py \
+    --task Bolt-Soccer-DepthImage-v0 \
+    --num_envs 1 \
+    --checkpoint logs/skrl/inreal_v2_soccer_depth_image/2026-08-20_16-16-40_ppo_torch_raw_depth/checkpoints/agent_72000.pt \
     --video \
     --video_length 800 \
     --headless
